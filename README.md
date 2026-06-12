@@ -1,1 +1,1 @@
-# <h2 align='center'>Trabalho2-CG</h2>
+# <h2 align='center'>Exposição de terror em Minecraft - Passeio Virtual 3D</h2>
