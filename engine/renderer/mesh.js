@@ -1,5 +1,5 @@
 import { GeometryBuffer } from './buffer.js';
-import { Mat4 } from '../math/matrix.js';
+import { Mattriz4 } from '../math/matrix.js';
 
 /**
  * Representa um objeto 3D renderizável no cenário do passeio virtual.
