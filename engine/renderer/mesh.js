@@ -1,5 +1,5 @@
 import { GeometryBuffer } from './buffer.js';
-import { Mattriz4 } from '../math/matrix.js';
+import { Matriz4 } from '../math/matrix.js';
 
 /**
  * Representa um objeto 3D renderizável no cenário do passeio virtual.
@@ -15,7 +15,7 @@ export class Mesh {
         
         // Cada Mesh tem sua própria Matriz de Modelo (Model Matrix)
         // Inicializada como identidade (posição 0,0,0, sem rotação ou escala)
-        this.modelMatrix = Mat4.identity();
+        this.modelMatrix = Matriz4.identity();
     }
 
     /**
@@ -30,7 +30,7 @@ export class Mesh {
     /**
      * Define a transformação espacial desta malha no mundo 3D.
      * Como o cenário é estático, você chamará isso apenas uma vez por objeto no setup.
-     * @param {Mat4} matrix - A Matriz de Modelo pré-calculada
+     * @param {Matriz4} matrix - A Matriz de Modelo pré-calculada
      */
     setTransform(matrix) {
         this.modelMatrix = matrix;
