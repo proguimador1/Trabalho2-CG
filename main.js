@@ -76,6 +76,7 @@ async function init() {
 
     // 3. Inicializar a Câmera em Primeira Pessoa (Requisitos b-I e b-II)
     camera = new Camera(canvas);
+    camera.moveSpeed = 2.0;
     // Posiciona o observador no ar dentro do corredor livre (X=2, Y=1.2, Z=2)
     camera.position = new Vetor3(2.0, 1.2, 2.0);
     camera.updateProjection(60, 0.1, 100.0);
