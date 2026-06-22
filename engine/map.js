@@ -38,8 +38,10 @@ export class MineMap {
         // 2. RAMIFICAÇÃO ESQUERDA INFERIOR
         // Ramificação de 30 unidades de comprimento para a esquerda. Termina em uma sala quadrada de 12x12.
         const zRamifBaixa = 25;
-        this.excavateTunnel(corredorX - 30, corredorX - 3, zRamifBaixa - 2, zRamifBaixa + 2); // Corredor largura 5
-        this.excavateRoom(corredorX - 42, corredorX - 30, zRamifBaixa - 5, zRamifBaixa + 6); // Sala 12x12 no final
+        // Escava o túnel da esquerda parando um pouco antes (X = 5)
+        this.excavateTunnel(5, corredorX - 3, zRamifBaixa - 2, zRamifBaixa + 2); 
+        // Escava a sala de 12 unidades adjacente (X de 5 a 17) para não estourar a borda 0
+        this.excavateRoom(5, 17, zRamifBaixa - 5, zRamifBaixa + 6);
 
         // 3. RAMIFICAÇÃO ESQUERDA SUPERIOR (Curva diagonal que vira uma sala redonda/quadrada)
         // Aproximação matemática da curva da planta da imagem:
@@ -64,17 +66,23 @@ export class MineMap {
     }
 
     excavateTunnel(startX, endX, startZ, endZ) {
-        // Escava a altura interna (Y=1 e Y=2), deixando Y=0 (Chão) e Y=3 (Teto) intactos com Pedra
-        for (let y = 1; y <= 2; y++) {
-            for (let x = startX; x <= endX; x++) {
-                for (let z = startZ; z <= endZ; z++) {
-                    if (this.isValid(x, y, z)) {
-                        this.data[y][x][z] = BLOCKS.AIR;
-                    }
+    // Escava a altura interna (Y=1 e Y=2)
+    for (let y = 1; y <= 2; y++) {
+        for (let x = startX; x <= endX; x++) {
+            for (let z = startZ; z <= endZ; z++) {
+                
+                // Se a coordenada for a borda extrema do mapa, NÃO escava
+                if (x === 0 || x === this.width - 1 || z === 0 || z === this.depth - 1) {
+                    continue; 
+                }
+
+                if (this.isValid(x, y, z)) {
+                    this.data[y][x][z] = BLOCKS.AIR;
                 }
             }
         }
     }
+}
 
     excavateRoom(startX, endX, startZ, endZ) {
         this.excavateTunnel(startX, endX, startZ, endZ);
