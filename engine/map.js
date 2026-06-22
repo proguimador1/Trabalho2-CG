@@ -1,70 +1,93 @@
-/**
- * Definição dos IDs de blocos disponíveis na mina (Estilo Minecraft)
- */
 export const BLOCKS = {
     AIR: 0,
     STONE: 1,
-    EARTH: 2,
-    IRON: 3,
-    GOLD: 4,
-    DIAMOND: 5,
-    WOOD: 6,
-    SOLID_COLOR_CUBE: 7 // Bloco para cumprir o requisito de cor sólida
+    SOLID_COLOR_CUBE: 7
 };
 
-/**
- * Gerenciador de Dados do Cenário da Mina Abandonada.
- * Construído manualmente via código conforme os requisitos do passeio.
- */
 export class MineMap {
     constructor() {
-        // Matriz 3D: [Camada Y][Linha X][Coluna Z]
-        // Criando uma seção de túnel quadrangular onde o espectador caminha pelo "Ar" (0)
-        this.data = [
-            // Camada 0: O Chão (Y = 0) - Uma plataforma sólida de pedra e terra
-            [
-                [1, 1, 1, 1, 1, 1, 1],
-                [1, 2, 2, 2, 2, 2, 1],
-                [1, 2, 2, 2, 2, 2, 1],
-                [1, 2, 2, 2, 2, 2, 1],
-                [1, 1, 1, 1, 1, 1, 1]
-            ],
+        // Dimensões baseadas nos requisitos:
+        // Comprimento total do corredor principal (Z) = 75
+        // Largura necessária para acomodar as ramificações de 30 unidades para a esquerda/direita (X) = ~75
+        // Altura (Y) = 4
+        this.width = 75;  // Eixo X (Esquerda / Direita)
+        this.height = 4;  // Eixo Y (Chão ao Teto)
+        this.depth = 75;  // Eixo Z (Profundidade do corredor principal)
 
-            // Camada 1: Altura dos Olhos (Y = 1) - Onde a câmera se move.
-            // As paredes contêm os minérios e suportes de madeira estruturais.
-            [
-                [1, 3, 1, 4, 1, 3, 1], // Parede Esquerda com Ferro (3) e Ouro (4)
-                [1, 0, 0, 0, 0, 0, 1], // Corredor livre para o passeio virtual
-                [6, 0, 0, 0, 0, 0, 6], // Vigas de suporte de Madeira (6) nas laterais
-                [1, 0, 0, 0, 0, 0, 1], // Corredor livre para o passeio virtual
-                [1, 1, 7, 1, 5, 1, 1]  // Parede Direita com bloco de Cor Sólida (7) e Diamante (5)
-            ],
+        // Inicializa o mundo inteiramente preenchido com blocos de Pedra
+        this.data = Array(this.height).fill(null).map(() => 
+            Array(this.width).fill(null).map(() => 
+                Array(this.depth).fill(BLOCKS.STONE)
+            )
+        );
 
-            // Camada 2: O Teto (Y = 2) - Fecha a caverna quadrangular simulando o ambiente fechado
-            [
-                [1, 1, 1, 1, 1, 1, 1],
-                [1, 1, 1, 1, 1, 1, 1],
-                [1, 1, 1, 1, 1, 1, 1],
-                [1, 1, 1, 1, 1, 1, 1],
-                [1, 1, 1, 1, 1, 1, 1]
-            ]
-        ];
-
-        // Dimensões calculadas dinamicamente com base na matriz acima
-        this.height = this.data.length;
-        this.width = this.data[0].length;
-        this.depth = this.data[0][0].length;
+        this.generateMapFromBlueprint();
     }
 
     /**
-     * Retorna o tipo de bloco em uma coordenada específica da mina.
+     * Escava os corredores e salas trocando STONE por AIR nas camadas centrais (Y=1 e Y=2)
+     * Mantém Y=0 (Chão) e Y=3 (Teto) totalmente fechados com PEDRA.
      */
+    generateMapFromBlueprint() {
+        const corredorX = Math.floor(this.width / 2); // Linha central do corredor principal (X = 37)
+
+        // 1. ESCALONAR O CORREDOR PRINCIPAL (Vertical na Imagem)
+        // Comprimento: 75 unidades (Z de 0 a 74), Largura: 5 unidades
+        this.excavateTunnel(corredorX - 2, corredorX + 2, 0, 74);
+
+        // 2. RAMIFICAÇÃO ESQUERDA INFERIOR
+        // Ramificação de 30 unidades de comprimento para a esquerda. Termina em uma sala quadrada de 12x12.
+        const zRamifBaixa = 25;
+        this.excavateTunnel(corredorX - 30, corredorX - 3, zRamifBaixa - 2, zRamifBaixa + 2); // Corredor largura 5
+        this.excavateRoom(corredorX - 42, corredorX - 30, zRamifBaixa - 5, zRamifBaixa + 6); // Sala 12x12 no final
+
+        // 3. RAMIFICAÇÃO ESQUERDA SUPERIOR (Curva diagonal que vira uma sala redonda/quadrada)
+        // Aproximação matemática da curva da planta da imagem:
+        const zRamifAltaEsq = 50;
+        // Segmento horizontal saindo do corredor principal
+        this.excavateTunnel(corredorX - 15, corredorX - 3, zRamifAltaEsq - 2, zRamifAltaEsq + 2);
+        // Segmento inclinado/curvo simulado por escavação adjacente
+        this.excavateTunnel(corredorX - 25, corredorX - 14, zRamifAltaEsq + 5, zRamifAltaEsq + 15);
+        // Grande Sala Circular/Quadrada de Diâmetro ~12 no topo esquerdo
+        this.excavateRoom(corredorX - 32, corredorX - 20, zRamifAltaEsq + 12, zRamifAltaEsq + 24);
+
+        // 4. RAMIFICAÇÃO DIREITA SUPERIOR (Sobe em diagonal e termina em uma sala retangular)
+        const zRamifAltaDir = 50;
+        // Escavação em escada/diagonal simulando a subida para a direita na planta
+        for (let i = 0; i < 20; i++) {
+            let offsetX = corredorX + i;
+            let offsetZ = zRamifAltaDir + Math.floor(i * 0.7);
+            this.excavateTunnel(offsetX, offsetX + 4, offsetZ - 2, offsetZ + 2);
+        }
+        // Sala Final da ramificação direita de 12 unidades de largura
+        this.excavateRoom(corredorX + 20, corredorX + 32, zRamifAltaDir + 10, zRamifAltaDir + 22);
+    }
+
+    excavateTunnel(startX, endX, startZ, endZ) {
+        // Escava a altura interna (Y=1 e Y=2), deixando Y=0 (Chão) e Y=3 (Teto) intactos com Pedra
+        for (let y = 1; y <= 2; y++) {
+            for (let x = startX; x <= endX; x++) {
+                for (let z = startZ; z <= endZ; z++) {
+                    if (this.isValid(x, y, z)) {
+                        this.data[y][x][z] = BLOCKS.AIR;
+                    }
+                }
+            }
+        }
+    }
+
+    excavateRoom(startX, endX, startZ, endZ) {
+        this.excavateTunnel(startX, endX, startZ, endZ);
+    }
+
+    isValid(x, y, z) {
+        return x >= 0 && x < this.width && y >= 0 && y < this.height && z >= 0 && z < this.depth;
+    }
+
     getBlock(x, y, z) {
-        if (y >= 0 && y < this.height &&
-            x >= 0 && x < this.width &&
-            z >= 0 && z < this.depth) {
+        if (this.isValid(x, y, z)) {
             return this.data[y][x][z];
         }
-        return BLOCKS.AIR; // Retorna ar se estiver fora dos limites da matriz
+        return BLOCKS.STONE; // Tudo fora dos limites é rocha sólida
     }
 }
