@@ -70,8 +70,8 @@ export class MineMap {
 
         this.torchPositions.push({
             position: [centroSalaEsqX, alturaTetoLuz, centroSalaEsqZ],
-            color: [1.0, 0.55, 0.2], // Cor alaranjada quente de fogo
-            intensity: 0.8         // Intensidade forte para banhar a sala de cima para baixo
+            color: [1.0, 0.0, 0.0], // Cor alaranjada quente de fogo
+            intensity: 0.5         // Intensidade forte para banhar a sala de cima para baixo
         });
 
         // RAMIFICAÇÃO ESQUERDA SUPERIOR (Curva diagonal que vira uma sala redonda/quadrada)
