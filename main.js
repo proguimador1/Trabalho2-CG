@@ -93,10 +93,18 @@ async function init() {
     lightManager = new LightManager(gl);
     lightManager.ambientColor = new Vetor3(0.05, 0.05, 0.07); 
 
-    // Tochas estáticas distribuídas ao longo da extensão do corredor principal (Z = 15, 35, 55)
-    lightManager.addStaticLight(new Vetor3(37.0, 2.5, 15.0), new Vetor3(1.0, 0.6, 0.3), 1.5);
-    lightManager.addStaticLight(new Vetor3(37.0, 2.5, 35.0), new Vetor3(1.0, 0.6, 0.3), 1.5);
-    lightManager.addStaticLight(new Vetor3(37.0, 2.5, 55.0), new Vetor3(1.0, 0.6, 0.3), 1.5);
+    // Configuração da luz móvel da sala do Enderman
+    lightManager.movingLight.color = new Vetor3(0.6, 0.0, 1.0); // Roxo bem destacado (R, G, B)
+    lightManager.movingLight.intensity = 0.5;
+
+    // Transfere as tochas calculadas do mapa para o gerenciador de Phong do light.js
+    mineMap.torchPositions.forEach(torch => {
+        lightManager.addStaticLight(
+            new Vetor3(torch.position[0], torch.position[1], torch.position[2]),
+            new Vetor3(torch.color[0], torch.color[1], torch.color[2]),
+            torch.intensity
+        );
+    });
 
     // Carregamento de Texturas
     textureLoader = new TextureManager(gl);
@@ -189,20 +197,6 @@ function renderLoop(currentTime) {
             }
         }
     }
-
-    // --- OBJETO ANIMADO (Lanterna de Luz Móvel no Teto) ---
-    let animMatrix = Matriz4.translation(
-        lightManager.movingLight.position.x,
-        lightManager.movingLight.position.y,
-        lightManager.movingLight.position.z
-    );
-    animMatrix = animMatrix.multiply(Matriz4.rotationY(currentTime * 3.0));
-
-    gl.uniform1i(uUseTextureLoc, 0);
-    materials.solidColor.apply(0);
-
-    cubeMesh.setTransform(animMatrix);
-    cubeMesh.draw(uModelMatrixLoc);
 
     requestAnimationFrame(renderLoop);
 }

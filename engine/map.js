@@ -14,6 +14,8 @@ export class MineMap {
         this.height = 6;  // Eixo Y (Chão ao Teto)
         this.depth = 75;  // Eixo Z (Profundidade do corredor principal)
 
+        this.torchPositions = []; // Array para guardar objetos { position, color, intensity }
+
         // Inicializa o mundo inteiramente preenchido com blocos de Pedra
         this.data = Array(this.height).fill(null).map(() => 
             Array(this.width).fill(null).map(() => 
@@ -31,19 +33,48 @@ export class MineMap {
     generateMapFromBlueprint() {
         const corredorX = Math.floor(this.width / 2); // Linha central do corredor principal (X = 37)
 
-        // 1. ESCALONAR O CORREDOR PRINCIPAL (Vertical na Imagem)
+        for (let z = 15; z < this.depth - 15; z += 15) {
+    
+            const alturaTocha = 2.0; 
+    
+            // Tocha da Parede Esquerda (fixada levemente à frente do bloco X=34, portanto em X=34.9)
+            this.torchPositions.push({
+                position: [34.9, alturaTocha, z],
+                color: [1.0, 0.55, 0.2], // Cor alaranjada quente de fogo
+                intensity: 0.4
+            });
+
+            // Tocha da Parede Direita (fixada levemente à frente do bloco X=40, portanto em X=39.1)
+            this.torchPositions.push({
+                position: [39.1, alturaTocha, z],
+                color: [1.0, 0.55, 0.2],
+                intensity: 0.4
+            });
+        }
+
+        // ESCALONAR O CORREDOR PRINCIPAL (Vertical na Imagem)
         // Comprimento: 75 unidades (Z de 0 a 74), Largura: 5 unidades
         this.excavateTunnel(corredorX - 2, corredorX + 2, 0, 74);
 
-        // 2. RAMIFICAÇÃO ESQUERDA INFERIOR
-        // Ramificação de 30 unidades de comprimento para a esquerda. Termina em uma sala quadrada de 12x12.
+        // RAMIFICAÇÃO DIREITA INFERIOR
+        // Ramificação de 30 unidades de comprimento para a direita. Termina em uma sala quadrada de 12x12.
         const zRamifBaixa = 25;
-        // Escava o túnel da esquerda parando um pouco antes (X = 5)
+        // Escava o túnel da direita parando um pouco antes (X = 5)
         this.excavateTunnel(5, corredorX - 3, zRamifBaixa - 2, zRamifBaixa + 2); 
         // Escava a sala de 12 unidades adjacente (X de 5 a 17) para não estourar a borda 0
         this.excavateRoom(5, 17, zRamifBaixa - 5, zRamifBaixa + 6);
 
-        // 3. RAMIFICAÇÃO ESQUERDA SUPERIOR (Curva diagonal que vira uma sala redonda/quadrada)
+        const centroSalaEsqX = 11.0;
+        const centroSalaEsqZ = 25.5;
+        const alturaTetoLuz = 3.5; // Posicionada logo abaixo do teto de pedra (Y=4)
+
+        this.torchPositions.push({
+            position: [centroSalaEsqX, alturaTetoLuz, centroSalaEsqZ],
+            color: [1.0, 0.0, 0.0], // Cor alaranjada quente de fogo
+            intensity: 0.5         // Intensidade forte para banhar a sala de cima para baixo
+        });
+
+        // RAMIFICAÇÃO ESQUERDA SUPERIOR (Curva diagonal que vira uma sala redonda/quadrada)
         // Aproximação matemática da curva da planta da imagem:
         const zRamifAltaEsq = 50;
         // Segmento horizontal saindo do corredor principal
@@ -53,7 +84,7 @@ export class MineMap {
         // Grande Sala Circular/Quadrada de Diâmetro ~12 no topo esquerdo
         this.excavateRoom(corredorX - 32, corredorX - 20, zRamifAltaEsq + 12, zRamifAltaEsq + 24);
 
-        // 4. RAMIFICAÇÃO DIREITA SUPERIOR (Sobe em diagonal e termina em uma sala retangular)
+        // RAMIFICAÇÃO DIREITA SUPERIOR (Sobe em diagonal e termina em uma sala retangular)
         const zRamifAltaDir = 50;
         // Escavação em escada/diagonal simulando a subida para a direita na planta
         for (let i = 0; i < 20; i++) {
