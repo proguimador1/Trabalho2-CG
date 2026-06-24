@@ -11,7 +11,7 @@ export class MineMap {
         // Largura necessária para acomodar as ramificações de 30 unidades para a esquerda/direita (X) = ~75
         // Altura (Y) = 4
         this.width = 75;  // Eixo X (Esquerda / Direita)
-        this.height = 4;  // Eixo Y (Chão ao Teto)
+        this.height = 6;  // Eixo Y (Chão ao Teto)
         this.depth = 75;  // Eixo Z (Profundidade do corredor principal)
 
         // Inicializa o mundo inteiramente preenchido com blocos de Pedra
@@ -66,12 +66,13 @@ export class MineMap {
     }
 
     excavateTunnel(startX, endX, startZ, endZ) {
-    // Escava a altura interna (Y=1 e Y=2)
-    for (let y = 1; y <= 2; y++) {
+    // Escava dinamicamente da camada 1 até a penúltima camada (this.height - 2)
+    // Deixando o chão (0) e o teto (this.height - 1) fechados com pedra
+    for (let y = 1; y <= this.height - 2; y++) { 
         for (let x = startX; x <= endX; x++) {
             for (let z = startZ; z <= endZ; z++) {
                 
-                // Se a coordenada for a borda extrema do mapa, NÃO escava
+                // Regra de segurança para fechar as bordas do mapa (X e Z)
                 if (x === 0 || x === this.width - 1 || z === 0 || z === this.depth - 1) {
                     continue; 
                 }
