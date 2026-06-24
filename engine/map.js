@@ -33,7 +33,7 @@ export class MineMap {
     generateMapFromBlueprint() {
         const corredorX = Math.floor(this.width / 2); // Linha central do corredor principal (X = 37)
 
-        for (let z = 8; z < this.depth - 8; z += 8) {
+        for (let z = 15; z < this.depth - 15; z += 15) {
     
             const alturaTocha = 2.0; 
     
@@ -41,14 +41,14 @@ export class MineMap {
             this.torchPositions.push({
                 position: [34.9, alturaTocha, z],
                 color: [1.0, 0.55, 0.2], // Cor alaranjada quente de fogo
-                intensity: 0.8
+                intensity: 0.4
             });
 
             // Tocha da Parede Direita (fixada levemente à frente do bloco X=40, portanto em X=39.1)
             this.torchPositions.push({
                 position: [39.1, alturaTocha, z],
                 color: [1.0, 0.55, 0.2],
-                intensity: 0.8
+                intensity: 0.4
             });
         }
 
