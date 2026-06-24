@@ -26,7 +26,7 @@ uniform sampler2D u_diffuseMap;
 uniform Material u_material;
 
 // Uniforms das Luzes
-#define MAX_STATIC_LIGHTS 10
+#define MAX_STATIC_LIGHTS 50
 uniform int u_numStaticLights;
 uniform PointLight u_staticLights[MAX_STATIC_LIGHTS];
 uniform PointLight u_movingLight;

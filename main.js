@@ -93,10 +93,14 @@ async function init() {
     lightManager = new LightManager(gl);
     lightManager.ambientColor = new Vetor3(0.05, 0.05, 0.07); 
 
-    // Tochas estáticas distribuídas ao longo da extensão do corredor principal (Z = 15, 35, 55)
-    lightManager.addStaticLight(new Vetor3(37.0, 2.5, 15.0), new Vetor3(1.0, 0.6, 0.3), 1.5);
-    lightManager.addStaticLight(new Vetor3(37.0, 2.5, 35.0), new Vetor3(1.0, 0.6, 0.3), 1.5);
-    lightManager.addStaticLight(new Vetor3(37.0, 2.5, 55.0), new Vetor3(1.0, 0.6, 0.3), 1.5);
+    // Transfere as tochas calculadas do mapa para o gerenciador de Phong do light.js
+    mineMap.torchPositions.forEach(torch => {
+        lightManager.addStaticLight(
+            new Vetor3(torch.position[0], torch.position[1], torch.position[2]),
+            new Vetor3(torch.color[0], torch.color[1], torch.color[2]),
+            torch.intensity
+        );
+    });
 
     // Carregamento de Texturas
     textureLoader = new TextureManager(gl);
