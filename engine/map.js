@@ -56,13 +56,23 @@ export class MineMap {
         // Comprimento: 75 unidades (Z de 0 a 74), Largura: 5 unidades
         this.excavateTunnel(corredorX - 2, corredorX + 2, 0, 74);
 
-        // RAMIFICAÇÃO ESQUERDA INFERIOR
-        // Ramificação de 30 unidades de comprimento para a esquerda. Termina em uma sala quadrada de 12x12.
+        // RAMIFICAÇÃO DIREITA INFERIOR
+        // Ramificação de 30 unidades de comprimento para a direita. Termina em uma sala quadrada de 12x12.
         const zRamifBaixa = 25;
-        // Escava o túnel da esquerda parando um pouco antes (X = 5)
+        // Escava o túnel da direita parando um pouco antes (X = 5)
         this.excavateTunnel(5, corredorX - 3, zRamifBaixa - 2, zRamifBaixa + 2); 
         // Escava a sala de 12 unidades adjacente (X de 5 a 17) para não estourar a borda 0
         this.excavateRoom(5, 17, zRamifBaixa - 5, zRamifBaixa + 6);
+
+        const centroSalaEsqX = 11.0;
+        const centroSalaEsqZ = 25.5;
+        const alturaTetoLuz = 3.5; // Posicionada logo abaixo do teto de pedra (Y=4)
+
+        this.torchPositions.push({
+            position: [centroSalaEsqX, alturaTetoLuz, centroSalaEsqZ],
+            color: [1.0, 0.55, 0.2], // Cor alaranjada quente de fogo
+            intensity: 0.8         // Intensidade forte para banhar a sala de cima para baixo
+        });
 
         // RAMIFICAÇÃO ESQUERDA SUPERIOR (Curva diagonal que vira uma sala redonda/quadrada)
         // Aproximação matemática da curva da planta da imagem:
