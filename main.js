@@ -198,20 +198,6 @@ function renderLoop(currentTime) {
         }
     }
 
-    // --- OBJETO ANIMADO (Lanterna de Luz Móvel no Teto) ---
-    /*let animMatrix = Matriz4.translation(
-        lightManager.movingLight.position.x,
-        lightManager.movingLight.position.y,
-        lightManager.movingLight.position.z
-    );
-    animMatrix = animMatrix.multiply(Matriz4.rotationY(currentTime * 3.0));
-
-    gl.uniform1i(uUseTextureLoc, 0);
-    materials.solidColor.apply(0);
-
-    cubeMesh.setTransform(animMatrix);
-    cubeMesh.draw(uModelMatrixLoc);*/
-
     requestAnimationFrame(renderLoop);
 }
 
