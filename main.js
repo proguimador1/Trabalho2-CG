@@ -93,6 +93,10 @@ async function init() {
     lightManager = new LightManager(gl);
     lightManager.ambientColor = new Vetor3(0.05, 0.05, 0.07); 
 
+    // Configuração da luz móvel da sala do Enderman
+    lightManager.movingLight.color = new Vetor3(0.6, 0.0, 1.0); // Roxo bem destacado (R, G, B)
+    lightManager.movingLight.intensity = 0.5;
+
     // Transfere as tochas calculadas do mapa para o gerenciador de Phong do light.js
     mineMap.torchPositions.forEach(torch => {
         lightManager.addStaticLight(
@@ -195,7 +199,7 @@ function renderLoop(currentTime) {
     }
 
     // --- OBJETO ANIMADO (Lanterna de Luz Móvel no Teto) ---
-    let animMatrix = Matriz4.translation(
+    /*let animMatrix = Matriz4.translation(
         lightManager.movingLight.position.x,
         lightManager.movingLight.position.y,
         lightManager.movingLight.position.z
@@ -206,7 +210,7 @@ function renderLoop(currentTime) {
     materials.solidColor.apply(0);
 
     cubeMesh.setTransform(animMatrix);
-    cubeMesh.draw(uModelMatrixLoc);
+    cubeMesh.draw(uModelMatrixLoc);*/
 
     requestAnimationFrame(renderLoop);
 }
