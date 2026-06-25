@@ -109,22 +109,29 @@ async function init() {
     // Carregamento de Texturas
     textureLoader = new TextureManager(gl);
     try {
-        const [texStone] = await Promise.all([
-            textureLoader.load('assets/textures/stone.jpeg')
+        const [texPedra, texTrilho, texMadeira, texDiamante] = await Promise.all([
+            textureLoader.load('assets/textures/pedra_escura.png'),
+            textureLoader.load('assets/textures/trilho.png'),
+            textureLoader.load('assets/textures/tabua.png'),
+            textureLoader.load('assets/textures/diamante.png'),
         ]);
 
         // Define a Textura de Pedra para todos os materiais conforme solicitado
-        materials.stone = new Material(gl, shaderProgram.program);
-        materials.stone.setTexture(texStone);
-        materials.stone.setLightingProperties(16.0, 0.15);
+        materials.pedra = new Material(gl, shaderProgram.program);
+        materials.pedra.setTexture(texPedra);
+        materials.pedra.setLightingProperties(16.0, 0.15);
 
-        materials.earth = new Material(gl, shaderProgram.program);
-        materials.earth.setTexture(texStone);
-        materials.earth.setLightingProperties(16.0, 0.15);
+        materials.trilho = new Material(gl, shaderProgram.program);
+        materials.trilho.setTexture(texTrilho);
+        materials.trilho.setLightingProperties(32.0, 0.05); // Menos brilho especular para o trilho
 
-        materials.diamond = new Material(gl, shaderProgram.program);
-        materials.diamond.setTexture(texStone);
-        materials.diamond.setLightingProperties(16.0, 0.15);
+        materials.madeira = new Material(gl, shaderProgram.program);
+        materials.madeira.setTexture(texMadeira);
+        materials.madeira.setLightingProperties(8.0, 0.1); // Madeira brilha menos que a pedra
+        
+        materials.diamante = new Material(gl, shaderProgram.program);
+        materials.diamante.setTexture(texDiamante);
+        materials.diamante.setLightingProperties(8.0, 0.1); // Madeira brilha menos que a pedra
 
         materials.solidColor = new Material(gl, shaderProgram.program);
         materials.solidColor.setLightingProperties(32.0, 0.8);
@@ -166,7 +173,6 @@ function renderLoop(currentTime) {
     const uModelMatrixLoc = shaderProgram.getUniformLocation("u_modelMatrix");
     const uUseTextureLoc = shaderProgram.getUniformLocation("u_useTexture");
 
-    // --- PIPELINE DE DESENHO DA CAVERNA BASEADA NA PLANTA ---
     for (let y = 0; y < mineMap.height; y++) {
         for (let x = 0; x < mineMap.width; x++) {
             for (let z = 0; z < mineMap.depth; z++) {
@@ -186,13 +192,59 @@ function renderLoop(currentTime) {
                 } else {
                     gl.uniform1i(uUseTextureLoc, 1); // Força Textura Ativa
                     
-                    switch (blockType) {
-                        case BLOCKS.STONE:
-                        default:
-                            materials.stone.apply(0);
+                    // 1. Identifica se o Z atual é uma linha de tochas (Múltiplos de 15)
+                    const ehZDaTocha = (z >= 15 && z < 75 && z % 15 === 0);
+                    
+                    // 2. Pilares das Paredes (Esquerda X=34 e Direita X=40)
+                    // Sobe desde o primeiro bloco acima do chão (Y=1) até o bloco antes do teto (Y=4)
+                    const ehPilarParede = ehZDaTocha && (y >= 1 && y <= 4) && (x === 34 || x === 40);
+                    
+                    // 3. Viga do Teto (Camada Y=5)
+                    // Cruza horizontalmente conectando as duas paredes (de X=34 até X=40)
+                    const ehVigaTeto = ehZDaTocha && (y === 5) && (x >= 34 && x <= 40);
+
+                    const alturaParedeSala = (y >= 1 && y <= 4);
+                    
+                    // Parede Esquerda/Fundo (X = 4) delimitada pelo comprimento Z da sala
+                    const ehParedeFundoDiamante = (x === 4) && (z >= 20 && z <= 31) && alturaParedeSala;
+                    
+                    // Parede Sul (Z = 19) delimitada pela largura X da sala
+                    const ehParedeSulDiamante = (z === 19) && (x >= 5 && x <= 17) && alturaParedeSala;
+                    
+                    // Parede Norte (Z = 32) delimitada pela largura X da sala
+                    const ehParedeNorteDiamante = (z === 32) && (x >= 5 && x <= 17) && alturaParedeSala;
+
+                    const ehParedeSalaDiamante = ehParedeFundoDiamante || ehParedeSulDiamante || ehParedeNorteDiamante;
+
+                    // --- SELEÇÃO DE MATERIAIS ---
+                    
+                    // Regra prioritária para o chão central continuar sendo trilho (Y=0, X=37)
+                    if (y === 0 && x === 37) {
+                        materials.trilho.apply(0);
+                    } 
+                    // Se corresponder a qualquer parte do portal do corredor, aplica MADEIRA
+                    else if (ehPilarParede || ehVigaTeto) {
+                        materials.madeira.apply(0);
+                    } 
+                    // Se corresponder a uma das 3 paredes fechadas da sala, aplica DIAMANTE
+                    else if (ehParedeSalaDiamante) {
+                        // Como seu init() usa 'materials.pedra', 'materials.trilho', 'materials.madeira'
+                        // vamos checar se você possui a propriedade 'materials.diamond' ou equivalente.
+                        // Caso queira usar a textura de pedra atual para o diamante provisoriamente, mantivemos a chamada abaixo.
+                        // Nota: Se você tiver um material específico para o diamante criado no init (ex: materials.diamante), mude o nome aqui:
+                        if (materials.diamante) {
+                            materials.diamante.apply(0);
+                        }
+                    }
+                    // Todo o resto vira rocha padrão
+                    else {
+                        switch (blockType) {
+                            case BLOCKS.STONE:
+                            default:
+                                materials.pedra.apply(0);
+                        }
                     }
                 }
-
                 cubeMesh.draw(uModelMatrixLoc);
             }
         }
