@@ -1,10 +1,11 @@
 /**
- * Classe simplificada para processar arquivos .obj e .mtl no passeio virtual cúbico.
+ * Classe para processar ficheiros .obj e .mtl no passeio virtual cúbico.
+ * Organiza e desintercala os dados geométricos no formato exato esperado pela classe Mesh.
  */
 export class OBJParser {
     /**
      * @param {WebGL2RenderingContext} gl - Contexto WebGL2.
-     * @param {TextureManager} textureLoader - Seu gerenciador de texturas.
+     * @param {TextureManager} textureLoader - O gestor de texturas do motor.
      */
     constructor(gl, textureLoader) {
         this.gl = gl;
@@ -12,8 +13,8 @@ export class OBJParser {
     }
 
     /**
-     * Carrega o modelo .obj e resolve seu material difuso mapeado.
-     * @param {string} objUrl - Caminho do arquivo .obj
+     * Carrega o modelo .obj e resolve o seu mapa de textura difusa associado através do .mtl.
+     * @param {string} objUrl - Caminho do ficheiro .obj
      */
     async loadModel(objUrl) {
         const response = await fetch(objUrl);
@@ -23,7 +24,7 @@ export class OBJParser {
         const baseFolder = objUrl.substring(0, objUrl.lastIndexOf('/') + 1);
         let texture = null;
 
-        // Procura se há um arquivo .mtl associado para buscar a imagem
+        // Procura se há um ficheiro .mtl associado para extrair o caminho da imagem
         const mtlLines = objText.split('\n').filter(line => line.trim().startsWith('mtllib'));
         if (mtlLines.length > 0) {
             const mtlFile = mtlLines[0].trim().split(/\s+/)[1];
@@ -32,7 +33,7 @@ export class OBJParser {
             }
         }
 
-        // Processa a geometria linearmente
+        // Processa a geometria garantindo o alinhamento com a Mesh [X,Y,Z, NX,NY,NZ, U,V]
         const geometry = this._parseObj(objText);
 
         return {
@@ -66,7 +67,6 @@ export class OBJParser {
             } else if (type === 'vn') {
                 normals.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
             } else if (type === 'f') {
-                // Coleta todas as definições de vértices da face (retira o identificador 'f')
                 const faceVertices = parts.slice(1).filter(p => p !== '');
                 
                 // Triangulação dinâmica para aceitar Triângulos (3) ou Quadrados (4) vindos do Blender
@@ -89,21 +89,21 @@ export class OBJParser {
                             const tIdx = lookup[1] ? (parseInt(lookup[1]) - 1) : -1;
                             const nIdx = lookup[2] ? (parseInt(lookup[2]) - 1) : -1;
 
-                            // Posição
+                            // 1. POSIÇÃO (X, Y, Z)
                             interleavedVertices.push(positions[pIdx][0], positions[pIdx][1], positions[pIdx][2]);
                             
-                            // UVs (Invertendo o V para padrão WebGL)
-                            if (tIdx >= 0) {
-                                interleavedVertices.push(texCoords[tIdx][0], 1.0 - texCoords[tIdx][1]);
-                            } else {
-                                interleavedVertices.push(0.0, 0.0);
-                            }
-
-                            // Normais
+                            // 2. NORMAIS (NX, NY, NZ) -> ALINHADO: Agora vem antes do UV para coincidir com a Mesh
                             if (nIdx >= 0) {
                                 interleavedVertices.push(normals[nIdx][0], normals[nIdx][1], normals[nIdx][2]);
                             } else {
                                 interleavedVertices.push(0.0, 1.0, 0.0);
+                            }
+
+                            // 3. COORDENADAS UV (U, V) -> ALINHADO: Invertendo o V para o padrão WebGL
+                            if (tIdx >= 0) {
+                                interleavedVertices.push(texCoords[tIdx][0], 1.0 - texCoords[tIdx][1]);
+                            } else {
+                                interleavedVertices.push(0.0, 0.0);
                             }
 
                             vertexCache.set(vertexStr, vertexCount);

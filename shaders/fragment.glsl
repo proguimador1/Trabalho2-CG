@@ -1,31 +1,38 @@
 #version 300 es
 precision highp float;
 
-// Dados recebidos do Vertex Shader
+// Dados recebidos do Vertex Shader interpolados por fragmento
 in vec3 v_worldPos;
 in vec3 v_normal;
 in vec2 v_texCoord;
 
-// Propriedades do Material
+// Propriedades do Material (Modelo de Phong)
 struct Material {
     float shininess;
     float specularStrength;
 };
 
-// Estrutura das Fontes de Luz
+// Estrutura das Fontes de Luz Pontuais
 struct PointLight {
     vec3 position;
     vec3 color;
     float intensity;
 };
 
-// Uniforms Globais
-uniform vec3 u_viewPos; // Posição atual da Câmera (essencial para o Especular)
+// Uniforms Globais de Controlo
+uniform vec3 u_viewPos; 
 uniform vec3 u_ambientColor;
 uniform sampler2D u_diffuseMap;
 uniform Material u_material;
 
-// Uniforms das Luzes
+// Uniforms de Alternância de Estado e Cor
+uniform vec4 u_color;        
+uniform int u_useTexture;    
+
+// NOVO UNIFORM: Controla a claridade/brilho da textura (Ex: 1.0 = normal, 2.0 = mais clara, 0.5 = mais escura)
+uniform float u_textureBrightness; 
+
+// Uniforms das Luzes do Cenário
 #define MAX_STATIC_LIGHTS 50
 uniform int u_numStaticLights;
 uniform PointLight u_staticLights[MAX_STATIC_LIGHTS];
@@ -33,49 +40,58 @@ uniform PointLight u_movingLight;
 
 out vec4 fragColor;
 
-// Função auxiliar que calcula o modelo de Phong para UMA fonte de luz pontual
+// Função auxiliar que calcula o modelo de iluminação de Phong para UMA fonte de luz pontual
 vec3 calculatePointLight(PointLight light, vec3 normal, vec3 viewDir, vec3 texColor) {
-    // 1. Vetor direção da luz
     vec3 lightDir = normalize(light.position - v_worldPos);
     
-    // Atenuação baseada na distância (essencial para ambientes fechados)
+    // Atenuação baseada na distância
     float distance = length(light.position - v_worldPos);
     float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * (distance * distance));
     
-    // 2. Componente Difusa (Lambert)
+    // Componente Difusa
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * light.color * texColor * light.intensity;
     
-    // 3. Componente Especular (Phong clássico)
+    // Componente Especular
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_material.shininess);
     vec3 specular = u_material.specularStrength * spec * light.color * light.intensity;
     
-    // Retorna a iluminação combinada aplicada por esta luz com atenuação
     return (diffuse + specular) * attenuation;
 }
 
 void main() {
-    // Normalizar a normal vinda do Vertex Shader interpolado
     vec3 norm = normalize(v_normal);
-    // Vetor que aponta do pixel em direção à câmera do usuário
     vec3 viewDir = normalize(u_viewPos - v_worldPos);
     
-    // Cor base do mapa de textura
-    vec3 texColor = texture(u_diffuseMap, v_texCoord).rgb;
-    
-    // Iniciar o acumulador com a luz ambiente fixa do cenário
-    vec3 totalLight = u_ambientColor * texColor;
-    
-    // Acumular a influência de todas as N luzes estáticas configuradas
-    int numLights = min(u_numStaticLights, MAX_STATIC_LIGHTS);
-    for(int i = 0; i < numLights; i++) {
-        totalLight += calculatePointLight(u_staticLights[i], norm, viewDir, texColor);
+    // Determinação dinâmica da cor base do pixel
+    vec3 baseColor;
+    if (u_useTexture == 1) {
+        vec4 sampleColor = texture(u_diffuseMap, v_texCoord);
+        
+        // Descarte de pixels transparentes
+        if (sampleColor.a < 0.1) {
+            discard;
+        }
+        
+        // MODIFICAÇÃO: Multiplica os canais RGB pelo u_textureBrightness para ajustar a claridade
+        baseColor = sampleColor.rgb * u_color.rgb * u_textureBrightness;
+    } else {
+        baseColor = u_color.rgb;
     }
     
-    // Acumular a influência da única luz móvel
-    totalLight += calculatePointLight(u_movingLight, norm, viewDir, texColor);
+    // Iniciar o acumulador com o termo de iluminação ambiente fixo da mina
+    vec3 totalLight = u_ambientColor * baseColor;
     
-    // Saída final com correção de gama simples para melhor contraste no browser
+    // Acumular a influência de todas as N luzes estáticas
+    int numLights = min(u_numStaticLights, MAX_STATIC_LIGHTS);
+    for(int i = 0; i < numLights; i++) {
+        totalLight += calculatePointLight(u_staticLights[i], norm, viewDir, baseColor);
+    }
+    
+    // Acumular a influência da única luz móvel (lanterna)
+    totalLight += calculatePointLight(u_movingLight, norm, viewDir, baseColor);
+    
+    // Saída final com correção de gama padrão (2.2)
     fragColor = vec4(pow(totalLight, vec3(1.0 / 2.2)), 1.0);
 }

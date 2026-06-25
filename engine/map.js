@@ -39,19 +39,19 @@ export class MineMap {
         this.excavateTunnel(corredorX - 2, corredorX + 2, 0, 74);
 
         // Gerador de pontos de iluminação e tochas
-        for (let z = 15; z < this.depth - 15; z += 15) {
+        for (let z = 15; z <= this.depth - 15; z += 15) {
             const alturaTocha = 2.0; 
     
             // Tocha da Parede Esquerda (fixada levemente à frente do bloco X=34, portanto em X=34.9)
             this.torchPositions.push({
-                position: [36, alturaTocha, z],
+                position: [36.2, alturaTocha, z],
                 color: [1.0, 0.55, 0.2], // Cor alaranjada quente de fogo
                 intensity: 0.4
             });
 
             // Tocha da Parede Direita (fixada levemente à frente do bloco X=40, portanto em X=39.1)
             this.torchPositions.push({
-                position: [38, alturaTocha, z],
+                position: [37.8, alturaTocha, z],
                 color: [1.0, 0.55, 0.2],
                 intensity: 0.4
             });

@@ -198,6 +198,10 @@ function renderLoop(currentTime) {
 
     const uModelMatrixLoc = shaderProgram.getUniformLocation("u_modelMatrix");
     const uUseTextureLoc = shaderProgram.getUniformLocation("u_useTexture");
+    const uColorLoc = shaderProgram.getUniformLocation("u_color");
+    
+    // CAPTURA DO NOVO UNIFORM DE CLARIDADE DA TEXTURA
+    const uTextureBrightnessLoc = shaderProgram.getUniformLocation("u_textureBrightness");
 
     const lanternaX = Math.floor(lightManager.movingLight.position.x);
     const lanternaZ = Math.floor(lightManager.movingLight.position.z);
@@ -237,13 +241,21 @@ function renderLoop(currentTime) {
                     gl.activeTexture(gl.TEXTURE0);
                     gl.bindTexture(gl.TEXTURE_2D, null);
                     
-                    const uColorLoc = shaderProgram.getUniformLocation("u_color");
+                    // Define a cor preta para a lanterna móvel
                     if (uColorLoc) gl.uniform4f(uColorLoc, 0.0, 0.0, 0.0, 1.0);
+                    
+                    // Define claridade padrão para a cor sólida
+                    if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.0);
                     
                     materials.solidColor.apply(0);
                     cubeMesh.draw(uModelMatrixLoc);
                 } else {
                     gl.uniform1i(uUseTextureLoc, 1); 
+                    // CORREÇÃO CRUCIAL: Reseta a cor para branco para não soterrar a textura em preto!
+                    if (uColorLoc) gl.uniform4f(uColorLoc, 1.0, 1.0, 1.0, 1.0);
+                    
+                    // REQUISITO DE CLARIDADE: Garante brilho padrão (1.0) para os blocos do cenário
+                    if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.0);
                     
                     const alturaParedeSala = (y >= 1 && y <= 4);
                     const ehParedeFundoDiamante = (x === 4) && (z >= 20 && z <= 31) && alturaParedeSala;
@@ -268,31 +280,25 @@ function renderLoop(currentTime) {
                 // --- CAMADA 2: INJEÇÃO DA TOCHA 3D DO MODELO OBJ NOS PILARES ---
                 if (ehPilarParede && y === 3 && torchMesh && torchMaterial) {
                     
-                    // Se o pilar estiver na parede esquerda (X=35), desloca a tocha para a direita (+0.55).
-                    // Se estiver na parede direita (X=39), desloca para a esquerda (-0.55).
                     let deslocamentoX = (x === 35) ? 0.55 : -0.55;
-                    
                     let targetX = x + deslocamentoX;
-                    let targetY = 2.0; // ALTERADO: Fixado estritamente em 2 unidades acima do nível do chão (y=0)
+                    let targetY = 2.0; 
                     let targetZ = z;
 
-                    // 1. Gera a translação espacial destino com a nova altura corrigida
                     let torchTranslation = Matriz4.translation(targetX, targetY, targetZ);
-                    
-                    // 2. Mantém a escala ideal que funcionou perfeitamente
                     let torchScale = Matriz4.scale(0.15, 0.15, 0.15);
-
-                    // 3. MULTIPLICAÇÃO EFICIENTE: Translação recebe a Escala (Ordem correta)
                     let finalTorchMatrix = torchTranslation.multiply(torchScale);
 
-                    // Transmite a matriz composta para a malha da tocha
                     torchMesh.setTransform(finalTorchMatrix);
                     
-                    // Aplica as texturas e propriedades de iluminação da tocha
                     gl.uniform1i(uUseTextureLoc, torchMaterial.texture ? 1 : 0);
-                    torchMaterial.apply(0);
+                    // ASSEGURA BRANCO PARA A TEXTURA DA TOCHA TAMBÉM
+                    if (uColorLoc) gl.uniform4f(uColorLoc, 1.0, 1.0, 1.0, 1.0);
                     
-                    // Renderiza o modelo redimensionado na altura correta do mapa
+                    // ALTERAÇÃO DA CLARIDADE EXCLUSIVA DA TOCHA (Aumenta o brilho da textura em 1.8x)
+                    if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.8);
+                    
+                    torchMaterial.apply(0);
                     torchMesh.draw(uModelMatrixLoc);
                 }
             }
