@@ -122,7 +122,7 @@ async function init() {
 
         materials.trilho = new Material(gl, shaderProgram.program);
         materials.trilho.setTexture(texTrilho);
-        materials.trilho.setLightingProperties(32.0, 0.05); 
+        materials.trilho.setLightingProperties(3128.0, 1.5); 
 
         materials.madeira = new Material(gl, shaderProgram.program);
         materials.madeira.setTexture(texMadeira);
