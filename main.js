@@ -154,7 +154,6 @@ async function init() {
         console.log("Instanciando e executando o OBJParser para a tocha...");
         const parserInstance = new OBJParser(gl, textureLoader);
         
-        // Carrega o tocha.obj (que faz o vínculo nativo com tocha.mtl e tocha.png)
         const torchData = await parserInstance.loadModel('assets/models/tocha.obj'); 
         
         torchMesh = new Mesh(gl);
@@ -176,7 +175,6 @@ async function init() {
         console.log("Instanciando e executando o OBJParser para o Enderman...");
         const parserInstance = new OBJParser(gl, textureLoader);
         
-        // Carrega o enderman.obj (que fará o vínculo nativo com enderman.mtl e enderman.png)
         const endermanData = await parserInstance.loadModel('assets/models/enderman.obj'); 
         
         endermanMesh = new Mesh(gl);
@@ -187,7 +185,6 @@ async function init() {
             endermanMaterial.setTexture(endermanData.texture);
         }
         
-        // Propriedades de iluminação (ajuste o brilho se quiser que os olhos brilhem no escuro)
         endermanMaterial.setLightingProperties(32.0, 0.1); 
         console.log("Modelo e textura do Enderman carregados com sucesso!");
     } catch (error) {
@@ -226,8 +223,6 @@ function renderLoop(currentTime) {
     const uModelMatrixLoc = shaderProgram.getUniformLocation("u_modelMatrix");
     const uUseTextureLoc = shaderProgram.getUniformLocation("u_useTexture");
     const uColorLoc = shaderProgram.getUniformLocation("u_color");
-    
-    // CAPTURA DO NOVO UNIFORM DE CLARIDADE DA TEXTURA
     const uTextureBrightnessLoc = shaderProgram.getUniformLocation("u_textureBrightness");
 
     const lanternaX = Math.floor(lightManager.movingLight.position.x);
@@ -285,9 +280,9 @@ function renderLoop(currentTime) {
                     const ehParedeSalaDiamante = ehParedeFundoDiamante || ehParedeSulDiamante || ehParedeNorteDiamante;
 
                     if (ehChaoDoTrilho) {
-                        materials.pedra.apply(0);
+                        materials.trilho.apply(0);
                     } else if (ehArcoMadeira) {
-                        materials.madeira.apply(0);
+                        materials.wood ? materials.wood.apply(0) : materials.madeira.apply(0);
                     } else if (ehParedeSalaDiamante) {
                         if (materials.diamante) materials.diamante.apply(0);
                         else materials.pedra.apply(0);
@@ -323,40 +318,21 @@ function renderLoop(currentTime) {
     }
 
     if (endermanMesh && endermanMaterial) {
-        // Coordenadas calculadas com base na escavação da sala direita
         let endermanX = 63.0; 
         let endermanZ = 66.0;
-
-        // --- CALIBRAÇÃO DE ALTURA (Y) ---
-        // Se o pivô interno do modelo .obj estiver no centro do corpo, ele pode ficar metade enterrado.
-        // Se ele sumir para baixo do chão, aumente gradativamente para 1.5, 2.0 ou 2.5.
         let endermanY = 3.5; 
-
-        // --- CALIBRAÇÃO DE ESCALA ---
         let escalaMundo = 0.4; 
 
-        // Criação das matrizes de transformação locais
         let endermanTranslation = Matriz4.translation(endermanX, endermanY, endermanZ);
         let endermanScale = Matriz4.scale(escalaMundo, escalaMundo, escalaMundo); 
-        
-        // OPCIONAL: Rotacionar em Y para fazê-lo olhar para a entrada da sala (diagonal esquerda)
-        // Se quiser usar, mude o ângulo em radianos e inclua na multiplicação abaixo
-        // let endermanRotation = Matriz4.rotationY(Math.PI / 4); 
-
-        // Composição da matriz final na ordem correta (Translação * Escala)
         let finalEndermanMatrix = endermanTranslation.multiply(endermanScale);
 
-        // Envia a matriz composta para o motor
         endermanMesh.setTransform(finalEndermanMatrix);
         
-        // Ativa os estados de textura e cor branca nativa no Shader
         gl.uniform1i(uUseTextureLoc, endermanMaterial.texture ? 1 : 0);
         if (uColorLoc) gl.uniform4f(uColorLoc, 1.0, 1.0, 1.0, 1.0);
-        
-        // REQUISITO DE CLARIDADE: Força 1.5x de brilho na textura para destacar seus detalhes roxos/pretos na escuridão
         if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.5);
         
-        // Vincula o material e desenha a criatura de forma isolada e performática
         endermanMaterial.apply(0);
         endermanMesh.draw(uModelMatrixLoc);
     }

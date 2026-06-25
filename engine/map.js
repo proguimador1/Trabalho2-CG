@@ -68,7 +68,7 @@ export class MineMap {
 
         this.torchPositions.push({
             position: [centroSalaEsqX, alturaTetoLuz, centroSalaEsqZ],
-            color: [1.0, 0.0, 0.0], 
+            color: [0.0, 0.0, 0.8], 
             intensity: 0.5         
         });
 
