@@ -31,6 +31,100 @@ let torchMaterial = null;
 let endermanMesh = null;
 let endermanMaterial = null;
 
+// --- GERENCIAMENTO DE ÁUDIO COM HOWLER.JS ---
+let somPasso = null;
+let somSalaEnderman = null;
+let espectadorEstavaNaSala = false; // Controle de estado para evitar disparar fades repetidos
+
+/**
+ * Inicializa e carrega os arquivos de áudio utilizando a biblioteca Howler.js
+ */
+function initAudio() {
+    // 1. Áudio de Passos
+    somPasso = new Howl({
+        src: ['assets/sounds/passada_pedra.ogg'], 
+        volume: 0.5,                     
+        loop: true,                      
+        pool: 5                          
+    });
+
+    // 2. Áudio Ambiente Contínuo da Sala do Enderman
+    somSalaEnderman = new Howl({
+        src: ['assets/sounds/endermen_olhar.ogg'],
+        volume: 0.0,                                 // Começa em silêncio absoluto
+        loop: true,                                  // Repete continuamente
+        pool: 1
+    });
+}
+
+/**
+ * Vincula o disparo do áudio em loop às teclas de movimentação da câmera
+ */
+function configurarAudioMovimento() {
+    const teclasMovimento = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+    const teclasPressionadas = new Set();
+    
+    window.addEventListener('keydown', (event) => {
+        const tecla = event.key.toLowerCase();
+        if (teclasMovimento.includes(tecla)) {
+            teclasPressionadas.add(tecla);
+            if (somPasso && !somPasso.playing() && !event.repeat) {
+                somPasso.play();
+            }
+        }
+    });
+
+    window.addEventListener('keyup', (event) => {
+        const tecla = event.key.toLowerCase();
+        if (teclasMovimento.includes(tecla)) {
+            teclasPressionadas.delete(tecla);
+            if (teclasPressionadas.size === 0 && somPasso) {
+                somPasso.stop(); 
+            }
+        }
+    });
+}
+
+/**
+ * Verifica as coordenadas da câmera para controlar dinamicamente o volume da sala do Enderman
+ */
+function atualizarAudioSalaEnderman() {
+    if (!somSalaEnderman || !camera) return;
+
+    const posX = camera.position.x;
+    const posZ = camera.position.z;
+
+    // Coordenadas calculadas baseadas no excavateRoom da ramificação superior direita (corredorX = 37)
+    const dentroX = (posX >= 57.0 && posX <= 69.0);
+    const dentroZ = (posZ >= 60.0 && posZ <= 72.0);
+    const estaDentroDaSala = dentroX && dentroZ;
+
+    if (estaDentroDaSala && !espectadorEstavaNaSala) {
+        espectadorEstavaNaSala = true;
+        
+        // Se não estava tocando, inicia o áudio
+        if (!somSalaEnderman.playing()) {
+            somSalaEnderman.play();
+        }
+        
+        // Faz o volume subir suavemente de 0.0 para 0.7 em 1.5 segundos
+        somSalaEnderman.fade(somSalaEnderman.volume(), 0.7, 1500);
+    } 
+    else if (!estaDentroDaSala && espectadorEstavaNaSala) {
+        espectadorEstavaNaSala = false;
+        
+        // Faz o volume descer suavemente até 0.0 em 1.5 segundos
+        somSalaEnderman.fade(somSalaEnderman.volume(), 0.0, 1500);
+        
+        // Ouve o evento de fim do fade para dar stop físico no áudio poupando processamento
+        somSalaEnderman.once('fade', () => {
+            if (!espectadorEstavaNaSala && somSalaEnderman.volume() === 0.0) {
+                somSalaEnderman.stop();
+            }
+        });
+    }
+}
+
 /**
  * Carrega o conteúdo textual de arquivos de shader externos.
  */
@@ -58,15 +152,17 @@ async function init() {
         return;
     }
 
-    // Configuração responsiva imediata para cobrir todo o Canvas
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
     gl.enable(gl.DEPTH_TEST); 
-    gl.clearColor(0.01, 0.01, 0.02, 1.0); // Breu total na mina
+    gl.clearColor(0.01, 0.01, 0.02, 1.0); 
 
-    // Carregar e Compilar os Shaders Externos
+    // Inicializa carregamento de áudios e interações
+    initAudio();
+    configurarAudioMovimento();
+
     let vertexSource, fragmentSource;
     try {
         vertexSource = await loadShaderFile('shaders/vertex.glsl');
@@ -82,10 +178,8 @@ async function init() {
         return;
     }
 
-    // Instanciar o Mapa Lógico Gerado pela Planta da Foto
     mineMap = new MineMap();
 
-    // Inicializar a Câmera em Primeira Pessoa (Colocada na entrada do Corredor Central: X=37, Z=2)
     camera = new Camera(canvas);
     camera.moveSpeed = 2.0;
     camera.position = new Vetor3(37.0, 1.5, 2.0); 
@@ -98,15 +192,12 @@ async function init() {
         camera.updateProjection(60, 0.1, 150.0);
     });
 
-    // Configurar Iluminação (Modelo de Phong)
     lightManager = new LightManager(gl);
     lightManager.ambientColor = new Vetor3(0.05, 0.05, 0.07); 
 
-    // Configuração da luz móvel da sala do Enderman
     lightManager.movingLight.color = new Vetor3(0.6, 0.0, 1.0); 
     lightManager.movingLight.intensity = 0.5;
 
-    // Transfere as tochas calculadas do mapa para o gerenciador de Phong
     mineMap.torchPositions.forEach(torch => {
         lightManager.addStaticLight(
             new Vetor3(torch.position[0], torch.position[1], torch.position[2]),
@@ -115,7 +206,6 @@ async function init() {
         );
     });
 
-    // Carregamento de Texturas dos Blocos Cúbicos
     textureLoader = new TextureManager(gl);
     try {
         const [texPedra, texTrilho, texMadeira, texDiamante] = await Promise.all([
@@ -149,11 +239,9 @@ async function init() {
         return;
     }
 
-    // --- CARREGAMENTO DO MODELO .OBJ DA TOCHA VIA OBJPARSER ---
     try {
         console.log("Instanciando e executando o OBJParser para a tocha...");
         const parserInstance = new OBJParser(gl, textureLoader);
-        
         const torchData = await parserInstance.loadModel('assets/models/tocha.obj'); 
         
         torchMesh = new Mesh(gl);
@@ -163,18 +251,14 @@ async function init() {
         if (torchData.texture) {
             torchMaterial.setTexture(torchData.texture);
         }
-        
         torchMaterial.setLightingProperties(16.0, 0.3);
-        console.log("Modelo e textura original (tocha.png) carregados com sucesso!");
     } catch (error) {
         console.error("Erro ao processar o arquivo .obj da tocha:", error);
     }
 
-    // --- CARREGAMENTO DO MODELO .OBJ DO ENDERMAN VIA OBJPARSER ---
     try {
         console.log("Instanciando e executando o OBJParser para o Enderman...");
         const parserInstance = new OBJParser(gl, textureLoader);
-        
         const endermanData = await parserInstance.loadModel('assets/models/enderman.obj'); 
         
         endermanMesh = new Mesh(gl);
@@ -184,14 +268,11 @@ async function init() {
         if (endermanData.texture) {
             endermanMaterial.setTexture(endermanData.texture);
         }
-        
         endermanMaterial.setLightingProperties(32.0, 0.1); 
-        console.log("Modelo e textura do Enderman carregados com sucesso!");
     } catch (error) {
         console.error("Erro ao processar o arquivo .obj do Enderman:", error);
     }
 
-    // Enviar Geometria do Cubo Base para a GPU
     cubeMesh = new Mesh(gl);
     cubeMesh.setGeometry(CUBE_VERTICES, CUBE_INDICES);
 
@@ -211,6 +292,9 @@ function renderLoop(currentTime) {
 
     camera.update(deltaTime);
     lightManager.updateMovingLight(currentTime);
+
+    // ANALISA A POSIÇÃO GEOGRÁFICA DA CÂMERA PARA CONTROLAR O ÁUDIO AMBIENTE
+    atualizarAudioSalaEnderman();
 
     shaderProgram.use();
 
@@ -235,13 +319,11 @@ function renderLoop(currentTime) {
                 
                 let blockType = mineMap.getBlock(x, y, z);
 
-                // --- LÓGICA DE INTERCEPTAÇÃO DA LANTERNA ANIMADA ---
                 const ehPosicaoDaLanterna = (x === lanternaX && z === lanternaZ && y === lanternaY);
                 if (ehPosicaoDaLanterna) {
                     blockType = BLOCKS.SOLID_COLOR_CUBE;
                 }
 
-                // --- PRÉ-CÁLCULO DA GEOMETRIA DO ARCO DE MADEIRA ENCOLHIDO ---
                 const ehZDaTocha = (z >= 15 && z < 75 && z % 15 === 0);
                 const ehPilarParede = ehZDaTocha && (y >= 1 && y <= 4) && (x === 35 || x === 39);
                 const ehVigaTeto = ehZDaTocha && (y === 4) && (x >= 35 && x <= 39);
@@ -249,12 +331,10 @@ function renderLoop(currentTime) {
 
                 const ehChaoDoTrilho = (y === 0 && x === 37);
 
-                // Se for ar comum (e não for bloco especial do cenário), pula o desenho
                 if (blockType === BLOCKS.AIR && !ehArcoMadeira && !ehPosicaoDaLanterna && !ehChaoDoTrilho) {
                     continue;
                 }
 
-                // --- CAMADA 1: RENDERIZAÇÃO DO BLOCO CÚBICO BASE ---
                 let modelMatrix = Matriz4.translation(x, y, z);
                 cubeMesh.setTransform(modelMatrix);
 
@@ -282,7 +362,7 @@ function renderLoop(currentTime) {
                     if (ehChaoDoTrilho) {
                         materials.trilho.apply(0);
                     } else if (ehArcoMadeira) {
-                        materials.wood ? materials.wood.apply(0) : materials.madeira.apply(0);
+                        materials.madeira.apply(0);
                     } else if (ehParedeSalaDiamante) {
                         if (materials.diamante) materials.diamante.apply(0);
                         else materials.pedra.apply(0);
@@ -293,7 +373,6 @@ function renderLoop(currentTime) {
                     cubeMesh.draw(uModelMatrixLoc);
                 }
 
-                // --- CAMADA 2: INJEÇÃO DA TOCHA 3D DO MODELO OBJ NOS PILARES ---
                 if (ehPilarParede && y === 3 && torchMesh && torchMaterial) {
                     let deslocamentoX = (x === 35) ? 0.55 : -0.55;
                     let targetX = x + deslocamentoX;
