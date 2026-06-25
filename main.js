@@ -7,6 +7,7 @@ import { LightManager } from './engine/light.js';
 import { Camera } from './engine/camera.js';
 import { TextureManager } from './engine/texture.js';
 import { MineMap, BLOCKS } from './engine/map.js';
+import { OBJParser } from './objParser.js';
 import { CUBE_VERTICES, CUBE_INDICES } from './cube-data.js';
 
 // --- VARIÁVEIS GLOBAIS DE CONTROLE ---
@@ -17,10 +18,14 @@ let lightManager = null;
 let textureLoader = null;
 let mineMap = null;
 
-// Elementos de Renderização
+// Elementos de Renderização de Blocos
 let cubeMesh = null;
 const materials = {};
 let lastTime = 0;
+
+// Elementos de Renderização do Modelo Customizado (Tocha 3D)
+let torchMesh = null;
+let torchMaterial = null;
 
 /**
  * Carrega o conteúdo textual de arquivos de shader externos.
@@ -80,7 +85,7 @@ async function init() {
     camera = new Camera(canvas);
     camera.moveSpeed = 2.0;
     camera.position = new Vetor3(37.0, 1.5, 2.0); 
-    camera.updateProjection(60, 0.1, 150.0); // Far plane estendido para 150 devido ao tamanho (75)
+    camera.updateProjection(60, 0.1, 150.0);
 
     window.addEventListener('resize', () => {
         canvas.width = canvas.clientWidth;
@@ -93,11 +98,11 @@ async function init() {
     lightManager = new LightManager(gl);
     lightManager.ambientColor = new Vetor3(0.05, 0.05, 0.07); 
 
-    // Configuração da luz móvel da sala do Enderman (Ramificação Superior Direita)
-    lightManager.movingLight.color = new Vetor3(0.6, 0.0, 1.0); // Roxo bem destacado (R, G, B)
+    // Configuração da luz móvel da sala do Enderman
+    lightManager.movingLight.color = new Vetor3(0.6, 0.0, 1.0); 
     lightManager.movingLight.intensity = 0.5;
 
-    // Transfere as tochas calculadas do mapa para o gerenciador de Phong do light.js
+    // Transfere as tochas calculadas do mapa para o gerenciador de Phong
     mineMap.torchPositions.forEach(torch => {
         lightManager.addStaticLight(
             new Vetor3(torch.position[0], torch.position[1], torch.position[2]),
@@ -106,7 +111,7 @@ async function init() {
         );
     });
 
-    // Carregamento de Texturas
+    // Carregamento de Texturas dos Blocos Cúbicos
     textureLoader = new TextureManager(gl);
     try {
         const [texPedra, texTrilho, texMadeira, texDiamante] = await Promise.all([
@@ -122,7 +127,7 @@ async function init() {
 
         materials.trilho = new Material(gl, shaderProgram.program);
         materials.trilho.setTexture(texTrilho);
-        materials.trilho.setLightingProperties(3128.0, 1.5); 
+        materials.trilho.setLightingProperties(128.0, 1.5); 
 
         materials.madeira = new Material(gl, shaderProgram.program);
         materials.madeira.setTexture(texMadeira);
@@ -132,16 +137,37 @@ async function init() {
         materials.diamante.setTexture(texDiamante);
         materials.diamante.setLightingProperties(8.0, 0.1); 
 
-        // Material da Lanterna Preta Sólida
         materials.solidColor = new Material(gl, shaderProgram.program);
-        materials.solidColor.setLightingProperties(32.0, 0.0); // Sem brilho especular para manter o preto absoluto
+        materials.solidColor.setLightingProperties(32.0, 0.0);
 
     } catch (error) {
         console.error("Falha no carregamento dos ativos de imagem em assets/textures/.", error);
         return;
     }
 
-    // Enviar Geometria do Cubo para a GPU
+    // --- CARREGAMENTO DO MODELO .OBJ DA TOCHA VIA OBJPARSER ---
+    try {
+        console.log("Instanciando e executando o OBJParser para a tocha...");
+        const parserInstance = new OBJParser(gl, textureLoader);
+        
+        // Carrega o tocha.obj (que faz o vínculo nativo com tocha.mtl e tocha.png)
+        const torchData = await parserInstance.loadModel('assets/models/tocha.obj'); 
+        
+        torchMesh = new Mesh(gl);
+        torchMesh.setGeometry(torchData.vertices, torchData.indices);
+        
+        torchMaterial = new Material(gl, shaderProgram.program);
+        if (torchData.texture) {
+            torchMaterial.setTexture(torchData.texture);
+        }
+        
+        torchMaterial.setLightingProperties(16.0, 0.3);
+        console.log("Modelo e textura original (tocha.png) carregados com sucesso!");
+    } catch (error) {
+        console.error("Erro ao processar o arquivo .obj da tocha:", error);
+    }
+
+    // Enviar Geometria do Cubo Base para a GPU
     cubeMesh = new Mesh(gl);
     cubeMesh.setGeometry(CUBE_VERTICES, CUBE_INDICES);
 
@@ -173,10 +199,9 @@ function renderLoop(currentTime) {
     const uModelMatrixLoc = shaderProgram.getUniformLocation("u_modelMatrix");
     const uUseTextureLoc = shaderProgram.getUniformLocation("u_useTexture");
 
-    // Pegamos a posição atual da luz roxa calculada pelo lightManager
     const lanternaX = Math.floor(lightManager.movingLight.position.x);
     const lanternaZ = Math.floor(lightManager.movingLight.position.z);
-    const lanternaY = 4; // Uma unidade abaixo do teto
+    const lanternaY = 4;
 
     for (let y = 0; y < mineMap.height; y++) {
         for (let x = 0; x < mineMap.width; x++) {
@@ -184,7 +209,7 @@ function renderLoop(currentTime) {
                 
                 let blockType = mineMap.getBlock(x, y, z);
 
-                // --- LOGICA DE INTERCEPTAÇÃO DA LANTERNA ANIMADA ---
+                // --- LÓGICA DE INTERCEPTAÇÃO DA LANTERNA ANIMADA ---
                 const ehPosicaoDaLanterna = (x === lanternaX && z === lanternaZ && y === lanternaY);
                 if (ehPosicaoDaLanterna) {
                     blockType = BLOCKS.SOLID_COLOR_CUBE;
@@ -196,69 +221,80 @@ function renderLoop(currentTime) {
                 const ehVigaTeto = ehZDaTocha && (y === 4) && (x >= 35 && x <= 39);
                 const ehArcoMadeira = ehPilarParede || ehVigaTeto;
 
-                // Se for ar comum (e não for a lanterna ou o arco), pula a renderização
-                if (blockType === BLOCKS.AIR && !ehArcoMadeira && !ehPosicaoDaLanterna) {
+                const ehChaoDoTrilho = (y === 0 && x === 37);
+
+                // Se for ar comum (e não for bloco especial do cenário), pula o desenho
+                if (blockType === BLOCKS.AIR && !ehArcoMadeira && !ehPosicaoDaLanterna && !ehChaoDoTrilho) {
                     continue;
                 }
 
-                // Constrói a transformação do bloco
+                // --- CAMADA 1: RENDERIZAÇÃO DO BLOCO CÚBICO BASE ---
                 let modelMatrix = Matriz4.translation(x, y, z);
                 cubeMesh.setTransform(modelMatrix);
 
-                // Se o bloco atual for definido como cubo de cor sólida (nossa Lanterna)
                 if (blockType === BLOCKS.SOLID_COLOR_CUBE) {
-                    gl.uniform1i(uUseTextureLoc, 0); // Desativa Textura no Uniform
-                    
-                    // SEGURANÇA MÁXIMA: Força o WebGL a esquecer qualquer textura vinculada antes do desenho
+                    gl.uniform1i(uUseTextureLoc, 0); 
                     gl.activeTexture(gl.TEXTURE0);
                     gl.bindTexture(gl.TEXTURE_2D, null);
                     
-                    // Passa para o Shader a cor Preta Pura [0.0, 0.0, 0.0] para pintar a lanterna
                     const uColorLoc = shaderProgram.getUniformLocation("u_color");
-                    if (uColorLoc) {
-                        gl.uniform4f(uColorLoc, 0.0, 0.0, 0.0, 1.0);
-                    }
+                    if (uColorLoc) gl.uniform4f(uColorLoc, 0.0, 0.0, 0.0, 1.0);
                     
                     materials.solidColor.apply(0);
+                    cubeMesh.draw(uModelMatrixLoc);
                 } else {
-                    gl.uniform1i(uUseTextureLoc, 1); // Força Textura Ativa
+                    gl.uniform1i(uUseTextureLoc, 1); 
                     
-                    // --- 2. LÓGICA PAREDES DE DIAMANTE (SALA INFERIOR DIREITA) ---
                     const alturaParedeSala = (y >= 1 && y <= 4);
                     const ehParedeFundoDiamante = (x === 4) && (z >= 20 && z <= 31) && alturaParedeSala;
                     const ehParedeSulDiamante = (z === 19) && (x >= 5 && x <= 17) && alturaParedeSala;
                     const ehParedeNorteDiamante = (z === 32) && (x >= 5 && x <= 17) && alturaParedeSala;
                     const ehParedeSalaDiamante = ehParedeFundoDiamante || ehParedeSulDiamante || ehParedeNorteDiamante;
 
-                    // --- SELEÇÃO DE MATERIAIS COM PROCEDÊNCIA ---
-                    
-                    // Regra 1: Chão central continua sendo trilho (Y=0, X=37)
-                    if (y === 0 && x === 37) {
-                        materials.trilho.apply(0);
-                    } 
-                    // Regra 2: Se cair no cálculo geométrico do portal, força MADEIRA
-                    else if (ehArcoMadeira) {
+                    if (ehChaoDoTrilho) {
+                        materials.pedra.apply(0);
+                    } else if (ehArcoMadeira) {
                         materials.madeira.apply(0);
-                    } 
-                    // Regra 3: Se corresponder a uma das 3 paredes fechadas da sala, aplica DIAMANTE
-                    else if (ehParedeSalaDiamante) {
-                        if (materials.diamante) {
-                            materials.diamante.apply(0);
-                        } else {
-                            materials.pedra.apply(0);
-                        }
+                    } else if (ehParedeSalaDiamante) {
+                        if (materials.diamante) materials.diamante.apply(0);
+                        else materials.pedra.apply(0);
+                    } else {
+                        materials.pedra.apply(0);
                     }
-                    // Regra 4: Todo o resto vira rocha padrão
-                    else {
-                        switch (blockType) {
-                            case BLOCKS.STONE:
-                            default:
-                                materials.pedra.apply(0);
-                        }
-                    }
+
+                    cubeMesh.draw(uModelMatrixLoc);
                 }
 
-                cubeMesh.draw(uModelMatrixLoc);
+                // --- CAMADA 2: INJEÇÃO DA TOCHA 3D DO MODELO OBJ NOS PILARES ---
+                if (ehPilarParede && y === 3 && torchMesh && torchMaterial) {
+                    
+                    // Se o pilar estiver na parede esquerda (X=35), desloca a tocha para a direita (+0.55).
+                    // Se estiver na parede direita (X=39), desloca para a esquerda (-0.55).
+                    let deslocamentoX = (x === 35) ? 0.55 : -0.55;
+                    
+                    let targetX = x + deslocamentoX;
+                    let targetY = 2.0; // ALTERADO: Fixado estritamente em 2 unidades acima do nível do chão (y=0)
+                    let targetZ = z;
+
+                    // 1. Gera a translação espacial destino com a nova altura corrigida
+                    let torchTranslation = Matriz4.translation(targetX, targetY, targetZ);
+                    
+                    // 2. Mantém a escala ideal que funcionou perfeitamente
+                    let torchScale = Matriz4.scale(0.15, 0.15, 0.15);
+
+                    // 3. MULTIPLICAÇÃO EFICIENTE: Translação recebe a Escala (Ordem correta)
+                    let finalTorchMatrix = torchTranslation.multiply(torchScale);
+
+                    // Transmite a matriz composta para a malha da tocha
+                    torchMesh.setTransform(finalTorchMatrix);
+                    
+                    // Aplica as texturas e propriedades de iluminação da tocha
+                    gl.uniform1i(uUseTextureLoc, torchMaterial.texture ? 1 : 0);
+                    torchMaterial.apply(0);
+                    
+                    // Renderiza o modelo redimensionado na altura correta do mapa
+                    torchMesh.draw(uModelMatrixLoc);
+                }
             }
         }
     }

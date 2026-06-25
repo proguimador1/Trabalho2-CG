@@ -52,6 +52,18 @@ export class Matriz4 {
     }
 
     /**
+     * Matriz de Escala
+     */
+    static scale(sx, sy, sz) {
+        const mat = new Matriz4();
+        mat.elements[0] = sx;  
+        mat.elements[5] = sy;  
+        mat.elements[10] = sz; 
+        mat.elements[15] = 1.0;
+        return mat;
+    }
+
+    /**
      * Matriz de Rotação no eixo Y (comum para girar a câmera para os lados)
      */
     static rotationY(rad) {
