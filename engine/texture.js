@@ -42,24 +42,24 @@ export class TextureManager {
 
         gl.bindTexture(gl.TEXTURE_2D, texture);
 
-        // 1. Enviar os pixels da imagem para o WebGL
+        // Enviar os pixels da imagem para o WebGL
         // Configura o formato interno para RGBA (padrão web comum)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
-        // 2. Configurar o comportamento de repetição (S e T são equivalentes a X e Y na textura)
+        // Configurar o comportamento de repetição (S e T são equivalentes a X e Y na textura)
         // gl.REPEAT permite que texturas de tijolo ou piso se repitam infinitamente pelas paredes
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
-        // 3. Configurar a filtragem de minificação e magnificação
+        // Configurar a filtragem de minificação e magnificação
         // Usamos LINEAR_MIPMAP_LINEAR para ativar a transição suave de Mipmaps (Trilinear filtering)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-        // 4. Gerar Mipmaps automaticamente para evitar serrilhados à distância
+        // Gerar Mipmaps automaticamente para evitar serrilhados à distância
         gl.generateMipmap(gl.TEXTURE_2D);
 
-        // 5. Ativar Filtro Anisotrópico (Otimização visual crucial para corredores de passeios virtuais)
+        // Ativar Filtro Anisotrópico (Otimização visual crucial para corredores de passeios virtuais)
         const ext = gl.getExtension('EXT_texture_filter_anisotropic');
         if (ext) {
             // Descobre o nível máximo de anisotropia suportado pela GPU do usuário (ex: 4x, 8x, 16x)
