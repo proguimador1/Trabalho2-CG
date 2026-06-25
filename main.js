@@ -93,7 +93,7 @@ async function init() {
     lightManager = new LightManager(gl);
     lightManager.ambientColor = new Vetor3(0.05, 0.05, 0.07); 
 
-    // Configuração da luz móvel da sala do Enderman
+    // Configuração da luz móvel da sala do Enderman (Ramificação Superior Direita)
     lightManager.movingLight.color = new Vetor3(0.6, 0.0, 1.0); // Roxo bem destacado (R, G, B)
     lightManager.movingLight.intensity = 0.5;
 
@@ -132,8 +132,9 @@ async function init() {
         materials.diamante.setTexture(texDiamante);
         materials.diamante.setLightingProperties(8.0, 0.1); 
 
+        // Material da Lanterna Preta Sólida
         materials.solidColor = new Material(gl, shaderProgram.program);
-        materials.solidColor.setLightingProperties(32.0, 0.8);
+        materials.solidColor.setLightingProperties(32.0, 0.0); // Sem brilho especular para manter o preto absoluto
 
     } catch (error) {
         console.error("Falha no carregamento dos ativos de imagem em assets/textures/.", error);
@@ -172,35 +173,52 @@ function renderLoop(currentTime) {
     const uModelMatrixLoc = shaderProgram.getUniformLocation("u_modelMatrix");
     const uUseTextureLoc = shaderProgram.getUniformLocation("u_useTexture");
 
+    // Pegamos a posição atual da luz roxa calculada pelo lightManager
+    const lanternaX = Math.floor(lightManager.movingLight.position.x);
+    const lanternaZ = Math.floor(lightManager.movingLight.position.z);
+    const lanternaY = 4; // Uma unidade abaixo do teto
+
     for (let y = 0; y < mineMap.height; y++) {
         for (let x = 0; x < mineMap.width; x++) {
             for (let z = 0; z < mineMap.depth; z++) {
                 
-                const blockType = mineMap.getBlock(x, y, z);
+                let blockType = mineMap.getBlock(x, y, z);
 
-                // --- 1. PRÉ-CÁLCULO DA GEOMETRIA DO ARCO DE MADEIRA ENCOLHIDO ---
+                // --- LOGICA DE INTERCEPTAÇÃO DA LANTERNA ANIMADA ---
+                const ehPosicaoDaLanterna = (x === lanternaX && z === lanternaZ && y === lanternaY);
+                if (ehPosicaoDaLanterna) {
+                    blockType = BLOCKS.SOLID_COLOR_CUBE;
+                }
+
+                // --- PRÉ-CÁLCULO DA GEOMETRIA DO ARCO DE MADEIRA ENCOLHIDO ---
                 const ehZDaTocha = (z >= 15 && z < 75 && z % 15 === 0);
-                
-                // Pilares: X=35 ou X=39 de Y=1 até Y=4
                 const ehPilarParede = ehZDaTocha && (y >= 1 && y <= 4) && (x === 35 || x === 39);
-                
-                // Viga horizontal: Y=4 de X=35 até X=39
                 const ehVigaTeto = ehZDaTocha && (y === 4) && (x >= 35 && x <= 39);
-
                 const ehArcoMadeira = ehPilarParede || ehVigaTeto;
 
-                // --- INTERCEPTAÇÃO CRUCIAL PARA PREVENIR O SUMIÇO ---
-                // Se for a área do arco encolhido, NÃO damos continue, mesmo que a matriz informe ser BLOCKS.AIR (0)
-                if (blockType === BLOCKS.AIR && !ehArcoMadeira) {
+                // Se for ar comum (e não for a lanterna ou o arco), pula a renderização
+                if (blockType === BLOCKS.AIR && !ehArcoMadeira && !ehPosicaoDaLanterna) {
                     continue;
                 }
 
-                // Constrói a transformação do bloco (seja ar injetado com madeira ou bloco comum)
+                // Constrói a transformação do bloco
                 let modelMatrix = Matriz4.translation(x, y, z);
                 cubeMesh.setTransform(modelMatrix);
 
+                // Se o bloco atual for definido como cubo de cor sólida (nossa Lanterna)
                 if (blockType === BLOCKS.SOLID_COLOR_CUBE) {
-                    gl.uniform1i(uUseTextureLoc, 0);
+                    gl.uniform1i(uUseTextureLoc, 0); // Desativa Textura no Uniform
+                    
+                    // SEGURANÇA MÁXIMA: Força o WebGL a esquecer qualquer textura vinculada antes do desenho
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, null);
+                    
+                    // Passa para o Shader a cor Preta Pura [0.0, 0.0, 0.0] para pintar a lanterna
+                    const uColorLoc = shaderProgram.getUniformLocation("u_color");
+                    if (uColorLoc) {
+                        gl.uniform4f(uColorLoc, 0.0, 0.0, 0.0, 1.0);
+                    }
+                    
                     materials.solidColor.apply(0);
                 } else {
                     gl.uniform1i(uUseTextureLoc, 1); // Força Textura Ativa
@@ -210,7 +228,6 @@ function renderLoop(currentTime) {
                     const ehParedeFundoDiamante = (x === 4) && (z >= 20 && z <= 31) && alturaParedeSala;
                     const ehParedeSulDiamante = (z === 19) && (x >= 5 && x <= 17) && alturaParedeSala;
                     const ehParedeNorteDiamante = (z === 32) && (x >= 5 && x <= 17) && alturaParedeSala;
-
                     const ehParedeSalaDiamante = ehParedeFundoDiamante || ehParedeSulDiamante || ehParedeNorteDiamante;
 
                     // --- SELEÇÃO DE MATERIAIS COM PROCEDÊNCIA ---
@@ -219,7 +236,7 @@ function renderLoop(currentTime) {
                     if (y === 0 && x === 37) {
                         materials.trilho.apply(0);
                     } 
-                    // Regra 2: Se cair no cálculo geométrico do portal, força MADEIRA (ignora o AR do mapa)
+                    // Regra 2: Se cair no cálculo geométrico do portal, força MADEIRA
                     else if (ehArcoMadeira) {
                         materials.madeira.apply(0);
                     } 
