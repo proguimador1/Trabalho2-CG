@@ -111,7 +111,7 @@ async function init() {
     try {
         const [texPedra, texTrilho, texMadeira, texDiamante] = await Promise.all([
             textureLoader.load('assets/textures/pedra_escura.png'),
-            textureLoader.load('assets/textures/trilho.png'),
+            textureLoader.load('assets/textures/trilhoEmPedra(2.2).png'),
             textureLoader.load('assets/textures/tabua.png'),
             textureLoader.load('assets/textures/diamante.png'),
         ]);
