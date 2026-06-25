@@ -1,0 +1,125 @@
+export const BLOCKS = {
+    AIR: 0,
+    STONE: 1,
+    RAIL: 2,
+    WOOD: 3, 
+    SOLID_COLOR_CUBE: 7
+};
+
+export class MineMap {
+    constructor() {
+        // Dimensões baseadas nos requisitos:
+        // Comprimento total do corredor principal (Z) = 75
+        // Largura necessária para acomodar as ramificações de 30 unidades para a esquerda/direita (X) = ~75
+        // Altura (Y) = 6 (Índices de 0 a 5)
+        this.width = 75;  // Eixo X (Esquerda / Direita)
+        this.height = 6;  // Eixo Y (Chão ao Teto)
+        this.depth = 75;  // Eixo Z (Profundidade do corredor principal)
+
+        this.torchPositions = []; // Array para guardar objetos { position, color, intensity }
+
+        // Inicializa o mundo inteiramente preenchido com blocos de Pedra
+        this.data = Array(this.height).fill(null).map(() => 
+            Array(this.width).fill(null).map(() => 
+                Array(this.depth).fill(BLOCKS.STONE)
+            )
+        );
+
+        this.generateMapFromBlueprint();
+    }
+
+    /**
+     * Escava os corredores e salas trocando STONE por AIR nas camadas centrais.
+     */
+    generateMapFromBlueprint() {
+        const corredorX = Math.floor(this.width / 2); // Linha central do corredor principal (X = 37)
+
+        // ESCALONAR O CORREDOR PRINCIPAL primeiro
+        // Comprimento: 75 unidades (Z de 0 a 74), Largura: 5 unidades (X de 35 a 39)
+        this.excavateTunnel(corredorX - 2, corredorX + 2, 0, 74);
+
+        // Gerador de pontos de iluminação e tochas
+        for (let z = 15; z <= this.depth - 15; z += 15) {
+            const alturaTocha = 2.0; 
+    
+            // Tocha da Parede Esquerda (fixada levemente à frente do bloco X=34, portanto em X=34.9)
+            this.torchPositions.push({
+                position: [36.2, alturaTocha, z],
+                color: [1.0, 0.55, 0.2], // Cor alaranjada quente de fogo
+                intensity: 0.4
+            });
+
+            // Tocha da Parede Direita (fixada levemente à frente do bloco X=40, portanto em X=39.1)
+            this.torchPositions.push({
+                position: [37.8, alturaTocha, z],
+                color: [1.0, 0.55, 0.2],
+                intensity: 0.4
+            });
+        }
+
+        // RAMIFICAÇÃO DIREITA INFERIOR
+        const zRamifBaixa = 25;
+        this.excavateTunnel(5, corredorX - 3, zRamifBaixa - 2, zRamifBaixa + 2); 
+        this.excavateRoom(5, 17, zRamifBaixa - 5, zRamifBaixa + 6);
+
+        const centroSalaEsqX = 11.0;
+        const centroSalaEsqZ = 25.5;
+        const alturaTetoLuz = 3.5; 
+
+        this.torchPositions.push({
+            position: [centroSalaEsqX, alturaTetoLuz, centroSalaEsqZ],
+            color: [0.0, 0.0, 0.8], 
+            intensity: 0.5         
+        });
+
+        // RAMIFICAÇÃO ESQUERDA SUPERIOR
+        const zRamifAltaEsq = 50;
+        this.excavateTunnel(corredorX - 15, corredorX - 3, zRamifAltaEsq - 2, zRamifAltaEsq + 2);
+        this.excavateTunnel(corredorX - 25, corredorX - 14, zRamifAltaEsq + 5, zRamifAltaEsq + 15);
+        this.excavateRoom(corredorX - 32, corredorX - 20, zRamifAltaEsq + 12, zRamifAltaEsq + 24);
+
+        // RAMIFICAÇÃO DIREITA SUPERIOR
+        const zRamifAltaDir = 50;
+        for (let i = 0; i < 20; i++) {
+            let offsetX = corredorX + i;
+            let offsetZ = zRamifAltaDir + Math.floor(i * 0.7);
+            this.excavateTunnel(offsetX, offsetX + 4, offsetZ - 2, offsetZ + 2);
+        }
+        this.excavateRoom(corredorX + 20, corredorX + 32, zRamifAltaDir + 10, zRamifAltaDir + 22);
+    }
+
+    excavateTunnel(startX, endX, startZ, endZ) {
+        // Escava dinamicamente de Y=1 até Y=4 para um mapa com this.height = 6
+        // Mantém o chão (Y=0) e o teto (Y=5) totalmente intactos com pedra sólida
+        for (let y = 1; y <= this.height - 2; y++) { 
+            for (let x = startX; x <= endX; x++) {
+                for (let z = startZ; z <= endZ; z++) {
+                    
+                    // Regra de segurança para fechar as bordas do mapa (X e Z)
+                    if (x === 0 || x === this.width - 1 || z === 0 || z === this.depth - 1) {
+                        continue; 
+                    }
+
+                    if (this.isValid(x, y, z)) {
+                        this.data[y][x][z] = BLOCKS.AIR;
+                    }
+                }
+            }
+        }
+    }
+
+    excavateRoom(startX, endX, startZ, endZ) {
+        this.excavateTunnel(startX, endX, startZ, endZ);
+    }
+
+    isValid(x, y, z) {
+        return x >= 0 && x < this.width && y >= 0 && y < this.height && z >= 0 && z < this.depth;
+    }
+
+    getBlock(x, y, z) {
+        if (this.isValid(x, y, z)) {
+            return this.data[y][x][z];
+        }
+        return BLOCKS.STONE; 
+    }
+}
