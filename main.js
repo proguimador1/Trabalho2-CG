@@ -27,6 +27,10 @@ let lastTime = 0;
 let torchMesh = null;
 let torchMaterial = null;
 
+// Elementos de Renderização do Modelo Customizado (Enderman 3D)
+let endermanMesh = null;
+let endermanMaterial = null;
+
 /**
  * Carrega o conteúdo textual de arquivos de shader externos.
  */
@@ -167,6 +171,29 @@ async function init() {
         console.error("Erro ao processar o arquivo .obj da tocha:", error);
     }
 
+    // --- CARREGAMENTO DO MODELO .OBJ DO ENDERMAN VIA OBJPARSER ---
+    try {
+        console.log("Instanciando e executando o OBJParser para o Enderman...");
+        const parserInstance = new OBJParser(gl, textureLoader);
+        
+        // Carrega o enderman.obj (que fará o vínculo nativo com enderman.mtl e enderman.png)
+        const endermanData = await parserInstance.loadModel('assets/models/enderman.obj'); 
+        
+        endermanMesh = new Mesh(gl);
+        endermanMesh.setGeometry(endermanData.vertices, endermanData.indices);
+        
+        endermanMaterial = new Material(gl, shaderProgram.program);
+        if (endermanData.texture) {
+            endermanMaterial.setTexture(endermanData.texture);
+        }
+        
+        // Propriedades de iluminação (ajuste o brilho se quiser que os olhos brilhem no escuro)
+        endermanMaterial.setLightingProperties(32.0, 0.1); 
+        console.log("Modelo e textura do Enderman carregados com sucesso!");
+    } catch (error) {
+        console.error("Erro ao processar o arquivo .obj do Enderman:", error);
+    }
+
     // Enviar Geometria do Cubo Base para a GPU
     cubeMesh = new Mesh(gl);
     cubeMesh.setGeometry(CUBE_VERTICES, CUBE_INDICES);
@@ -241,20 +268,14 @@ function renderLoop(currentTime) {
                     gl.activeTexture(gl.TEXTURE0);
                     gl.bindTexture(gl.TEXTURE_2D, null);
                     
-                    // Define a cor preta para a lanterna móvel
                     if (uColorLoc) gl.uniform4f(uColorLoc, 0.0, 0.0, 0.0, 1.0);
-                    
-                    // Define claridade padrão para a cor sólida
                     if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.0);
                     
                     materials.solidColor.apply(0);
                     cubeMesh.draw(uModelMatrixLoc);
                 } else {
                     gl.uniform1i(uUseTextureLoc, 1); 
-                    // CORREÇÃO CRUCIAL: Reseta a cor para branco para não soterrar a textura em preto!
                     if (uColorLoc) gl.uniform4f(uColorLoc, 1.0, 1.0, 1.0, 1.0);
-                    
-                    // REQUISITO DE CLARIDADE: Garante brilho padrão (1.0) para os blocos do cenário
                     if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.0);
                     
                     const alturaParedeSala = (y >= 1 && y <= 4);
@@ -279,7 +300,6 @@ function renderLoop(currentTime) {
 
                 // --- CAMADA 2: INJEÇÃO DA TOCHA 3D DO MODELO OBJ NOS PILARES ---
                 if (ehPilarParede && y === 3 && torchMesh && torchMaterial) {
-                    
                     let deslocamentoX = (x === 35) ? 0.55 : -0.55;
                     let targetX = x + deslocamentoX;
                     let targetY = 2.0; 
@@ -292,10 +312,7 @@ function renderLoop(currentTime) {
                     torchMesh.setTransform(finalTorchMatrix);
                     
                     gl.uniform1i(uUseTextureLoc, torchMaterial.texture ? 1 : 0);
-                    // ASSEGURA BRANCO PARA A TEXTURA DA TOCHA TAMBÉM
                     if (uColorLoc) gl.uniform4f(uColorLoc, 1.0, 1.0, 1.0, 1.0);
-                    
-                    // ALTERAÇÃO DA CLARIDADE EXCLUSIVA DA TOCHA (Aumenta o brilho da textura em 1.8x)
                     if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.8);
                     
                     torchMaterial.apply(0);
@@ -303,6 +320,45 @@ function renderLoop(currentTime) {
                 }
             }
         }
+    }
+
+    if (endermanMesh && endermanMaterial) {
+        // Coordenadas calculadas com base na escavação da sala direita
+        let endermanX = 63.0; 
+        let endermanZ = 66.0;
+
+        // --- CALIBRAÇÃO DE ALTURA (Y) ---
+        // Se o pivô interno do modelo .obj estiver no centro do corpo, ele pode ficar metade enterrado.
+        // Se ele sumir para baixo do chão, aumente gradativamente para 1.5, 2.0 ou 2.5.
+        let endermanY = 3.5; 
+
+        // --- CALIBRAÇÃO DE ESCALA ---
+        let escalaMundo = 0.4; 
+
+        // Criação das matrizes de transformação locais
+        let endermanTranslation = Matriz4.translation(endermanX, endermanY, endermanZ);
+        let endermanScale = Matriz4.scale(escalaMundo, escalaMundo, escalaMundo); 
+        
+        // OPCIONAL: Rotacionar em Y para fazê-lo olhar para a entrada da sala (diagonal esquerda)
+        // Se quiser usar, mude o ângulo em radianos e inclua na multiplicação abaixo
+        // let endermanRotation = Matriz4.rotationY(Math.PI / 4); 
+
+        // Composição da matriz final na ordem correta (Translação * Escala)
+        let finalEndermanMatrix = endermanTranslation.multiply(endermanScale);
+
+        // Envia a matriz composta para o motor
+        endermanMesh.setTransform(finalEndermanMatrix);
+        
+        // Ativa os estados de textura e cor branca nativa no Shader
+        gl.uniform1i(uUseTextureLoc, endermanMaterial.texture ? 1 : 0);
+        if (uColorLoc) gl.uniform4f(uColorLoc, 1.0, 1.0, 1.0, 1.0);
+        
+        // REQUISITO DE CLARIDADE: Força 1.5x de brilho na textura para destacar seus detalhes roxos/pretos na escuridão
+        if (uTextureBrightnessLoc) gl.uniform1f(uTextureBrightnessLoc, 1.5);
+        
+        // Vincula o material e desenha a criatura de forma isolada e performática
+        endermanMaterial.apply(0);
+        endermanMesh.draw(uModelMatrixLoc);
     }
 
     requestAnimationFrame(renderLoop);
