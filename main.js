@@ -111,27 +111,26 @@ async function init() {
     try {
         const [texPedra, texTrilho, texMadeira, texDiamante] = await Promise.all([
             textureLoader.load('assets/textures/pedra_escura.png'),
-            textureLoader.load('assets/textures/trilhoEmPedra(2.2).png'),
+            textureLoader.load('assets/textures/trilhoEmPedra.png'),
             textureLoader.load('assets/textures/tabua.png'),
             textureLoader.load('assets/textures/diamante.png'),
         ]);
 
-        // Define a Textura de Pedra para todos os materiais conforme solicitado
         materials.pedra = new Material(gl, shaderProgram.program);
         materials.pedra.setTexture(texPedra);
         materials.pedra.setLightingProperties(16.0, 0.15);
 
         materials.trilho = new Material(gl, shaderProgram.program);
         materials.trilho.setTexture(texTrilho);
-        materials.trilho.setLightingProperties(32.0, 0.05); // Menos brilho especular para o trilho
+        materials.trilho.setLightingProperties(32.0, 0.05); 
 
         materials.madeira = new Material(gl, shaderProgram.program);
         materials.madeira.setTexture(texMadeira);
-        materials.madeira.setLightingProperties(8.0, 0.1); // Madeira brilha menos que a pedra
+        materials.madeira.setLightingProperties(8.0, 0.1); 
         
         materials.diamante = new Material(gl, shaderProgram.program);
         materials.diamante.setTexture(texDiamante);
-        materials.diamante.setLightingProperties(8.0, 0.1); // Madeira brilha menos que a pedra
+        materials.diamante.setLightingProperties(8.0, 0.1); 
 
         materials.solidColor = new Material(gl, shaderProgram.program);
         materials.solidColor.setLightingProperties(32.0, 0.8);
@@ -179,10 +178,24 @@ function renderLoop(currentTime) {
                 
                 const blockType = mineMap.getBlock(x, y, z);
 
-                // Onde foi escavado AR (0), não desenha nada, criando o espaço livre do túnel
-                if (blockType === BLOCKS.AIR) continue;
+                // --- 1. PRÉ-CÁLCULO DA GEOMETRIA DO ARCO DE MADEIRA ENCOLHIDO ---
+                const ehZDaTocha = (z >= 15 && z < 75 && z % 15 === 0);
+                
+                // Pilares: X=35 ou X=39 de Y=1 até Y=4
+                const ehPilarParede = ehZDaTocha && (y >= 1 && y <= 4) && (x === 35 || x === 39);
+                
+                // Viga horizontal: Y=4 de X=35 até X=39
+                const ehVigaTeto = ehZDaTocha && (y === 4) && (x >= 35 && x <= 39);
 
-                // Constrói a transformação do bloco de pedra
+                const ehArcoMadeira = ehPilarParede || ehVigaTeto;
+
+                // --- INTERCEPTAÇÃO CRUCIAL PARA PREVENIR O SUMIÇO ---
+                // Se for a área do arco encolhido, NÃO damos continue, mesmo que a matriz informe ser BLOCKS.AIR (0)
+                if (blockType === BLOCKS.AIR && !ehArcoMadeira) {
+                    continue;
+                }
+
+                // Constrói a transformação do bloco (seja ar injetado com madeira ou bloco comum)
                 let modelMatrix = Matriz4.translation(x, y, z);
                 cubeMesh.setTransform(modelMatrix);
 
@@ -192,51 +205,33 @@ function renderLoop(currentTime) {
                 } else {
                     gl.uniform1i(uUseTextureLoc, 1); // Força Textura Ativa
                     
-                    // 1. Identifica se o Z atual é uma linha de tochas (Múltiplos de 15)
-                    const ehZDaTocha = (z >= 15 && z < 75 && z % 15 === 0);
-                    
-                    // 2. Pilares das Paredes (Esquerda X=34 e Direita X=40)
-                    // Sobe desde o primeiro bloco acima do chão (Y=1) até o bloco antes do teto (Y=4)
-                    const ehPilarParede = ehZDaTocha && (y >= 1 && y <= 4) && (x === 34 || x === 40);
-                    
-                    // 3. Viga do Teto (Camada Y=5)
-                    // Cruza horizontalmente conectando as duas paredes (de X=34 até X=40)
-                    const ehVigaTeto = ehZDaTocha && (y === 5) && (x >= 34 && x <= 40);
-
+                    // --- 2. LÓGICA PAREDES DE DIAMANTE (SALA INFERIOR DIREITA) ---
                     const alturaParedeSala = (y >= 1 && y <= 4);
-                    
-                    // Parede Esquerda/Fundo (X = 4) delimitada pelo comprimento Z da sala
                     const ehParedeFundoDiamante = (x === 4) && (z >= 20 && z <= 31) && alturaParedeSala;
-                    
-                    // Parede Sul (Z = 19) delimitada pela largura X da sala
                     const ehParedeSulDiamante = (z === 19) && (x >= 5 && x <= 17) && alturaParedeSala;
-                    
-                    // Parede Norte (Z = 32) delimitada pela largura X da sala
                     const ehParedeNorteDiamante = (z === 32) && (x >= 5 && x <= 17) && alturaParedeSala;
 
                     const ehParedeSalaDiamante = ehParedeFundoDiamante || ehParedeSulDiamante || ehParedeNorteDiamante;
 
-                    // --- SELEÇÃO DE MATERIAIS ---
+                    // --- SELEÇÃO DE MATERIAIS COM PROCEDÊNCIA ---
                     
-                    // Regra prioritária para o chão central continuar sendo trilho (Y=0, X=37)
+                    // Regra 1: Chão central continua sendo trilho (Y=0, X=37)
                     if (y === 0 && x === 37) {
                         materials.trilho.apply(0);
                     } 
-                    // Se corresponder a qualquer parte do portal do corredor, aplica MADEIRA
-                    else if (ehPilarParede || ehVigaTeto) {
+                    // Regra 2: Se cair no cálculo geométrico do portal, força MADEIRA (ignora o AR do mapa)
+                    else if (ehArcoMadeira) {
                         materials.madeira.apply(0);
                     } 
-                    // Se corresponder a uma das 3 paredes fechadas da sala, aplica DIAMANTE
+                    // Regra 3: Se corresponder a uma das 3 paredes fechadas da sala, aplica DIAMANTE
                     else if (ehParedeSalaDiamante) {
-                        // Como seu init() usa 'materials.pedra', 'materials.trilho', 'materials.madeira'
-                        // vamos checar se você possui a propriedade 'materials.diamond' ou equivalente.
-                        // Caso queira usar a textura de pedra atual para o diamante provisoriamente, mantivemos a chamada abaixo.
-                        // Nota: Se você tiver um material específico para o diamante criado no init (ex: materials.diamante), mude o nome aqui:
                         if (materials.diamante) {
                             materials.diamante.apply(0);
+                        } else {
+                            materials.pedra.apply(0);
                         }
                     }
-                    // Todo o resto vira rocha padrão
+                    // Regra 4: Todo o resto vira rocha padrão
                     else {
                         switch (blockType) {
                             case BLOCKS.STONE:
@@ -245,6 +240,7 @@ function renderLoop(currentTime) {
                         }
                     }
                 }
+
                 cubeMesh.draw(uModelMatrixLoc);
             }
         }
