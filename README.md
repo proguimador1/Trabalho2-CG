@@ -3,7 +3,8 @@
 
 ## Descrição
 Este projeto é uma aplicação gráfica interativa desenvolvida em **WebGL2**, simulando um passeio virtual imersivo por uma mina abandonada baseada no jogo Minecraft. O usuário explora um ambiente tridimensional gerado via matriz lógica procedural contendo corredores estruturados com vigas de madeira, trilhos ferroviários no chão e veios de minério de diamante encrustados nas paredes de rocha escura. O motor gráfico foi construído totalmente do zero, implementando um pipeline analítico manual que engloba álgebra linear customizada, câmera em primeira pessoa (FPS), buffers de vértices intercalados de alta performance e um sistema de iluminação dinâmico baseado no modelo de reflexão de Phong (composto por múltiplas tochas estáticas e uma fonte de luz móvel mística orbitando a sala do Enderman).
-
+---
+Equipe: Guilherme Souto de Andrade, João Victor dos Santos Sales e Rafael Monteiro de Castro Cavalcante
 ---
 
 ## Recursos Principais e Estrutura do Motor
