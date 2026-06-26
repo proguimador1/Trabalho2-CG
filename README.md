@@ -2,7 +2,7 @@
 # Mina Subterrânea do Minecraft — Passeio Virtual 3D
 
 ## Descrição
-Este projeto é uma aplicação gráfica interativa desenvolvida em **WebGL2, simulando um passeio virtual imersivo por uma mina abandonada baseada no jogo Minecraft. O usuário explora um ambiente tridimensional gerado via matriz lógica procedural contendo corredores estruturados com vigas de madeira, trilhos ferroviários no chão e veios de minério de diamante encrustados nas paredes de rocha escura. O motor gráfico foi construído totalmente do zero, implementando um pipeline analítico manual que engloba álgebra linear customizada, câmera em primeira pessoa (FPS), buffers de vértices intercalados de alta performance e um sistema de iluminação dinâmico baseado no modelo de reflexão de Phong (composto por múltiplas tochas estáticas e uma fonte de luz móvel mística orbitando a sala do Enderman).
+Este projeto é uma aplicação gráfica interativa desenvolvida em **WebGL2**, simulando um passeio virtual imersivo por uma mina abandonada baseada no jogo Minecraft. O usuário explora um ambiente tridimensional gerado via matriz lógica procedural contendo corredores estruturados com vigas de madeira, trilhos ferroviários no chão e veios de minério de diamante encrustados nas paredes de rocha escura. O motor gráfico foi construído totalmente do zero, implementando um pipeline analítico manual que engloba álgebra linear customizada, câmera em primeira pessoa (FPS), buffers de vértices intercalados de alta performance e um sistema de iluminação dinâmico baseado no modelo de reflexão de Phong (composto por múltiplas tochas estáticas e uma fonte de luz móvel mística orbitando a sala do Enderman).
 
 ---
 
@@ -64,7 +64,7 @@ Programas escritos na linguagem GLSL que rodam diretamente no núcleo de process
 
 ## Tutorial de Compilação e Execução
 
-Por ser um projeto puramente desenvolvido em **WebGL2** voltado para a plataforma Web, os fontes não exigem um pipeline complexo de compilação por compiladores nativos (como GCC ou C++). No entanto, devido à restrição de segurança de requisições de mesma origem (*CORS - Cross-Origin Resource Sharing*) imposta pelos navegadores modernos ao tentar carregar os shaders externos (`.glsl`) e imagens de textura (`.png`) via requisição assíncrona `fetch`, o projeto **não deve** ser aberto clicando duas vezes direto no arquivo `.html`. É obrigatório o uso de um servidor HTTP local.
+Por ser um projeto puramente desenvolvido em **WebGL2** voltado para a plataforma Web, os fontes não exigem um pipeline de compilação por compiladores nativos (como GCC ou C++). No entanto, devido à restrição de segurança de requisições de mesma origem (*CORS - Cross-Origin Resource Sharing*) imposta pelos navegadores modernos ao tentar carregar os shaders externos (`.glsl`) e imagens de textura (`.png`) via requisição assíncrona `fetch`, o projeto **não deve** ser aberto clicando duas vezes direto no arquivo `.html`. É obrigatório o uso de um servidor HTTP local.
 
 ### Pré-requisitos
 Certifique-se de possuir um dos seguintes ambientes instalados na máquina:
@@ -79,12 +79,16 @@ Certifique-se de possuir um dos seguintes ambientes instalados na máquina:
 2. Instale globalmente ou execute um servidor HTTP leve de forma temporária digitando:
    ```bash
    npx http-server . -p 8080
+   ```
 3. Abra o seu navegador de preferência e acesse o endereço fornecido no terminal (geralmente http://localhost:8080). 
 #### Opção B: Utilizando Python
 1. Abra o terminal e navegue até a pasta raiz do projeto.
 2. Dispare o módulo de servidor HTTP embutido do Python executando o comando correspondente à sua versão:
 Python 3:
-No terminal cole:  python -m http-server 8000
+
+```bash
+python -m http.server 8000
+```
 
 3. Abra o seu navegador e acesse o link: http://localhost:8000. 
 
@@ -92,7 +96,8 @@ No terminal cole:  python -m http-server 8000
 1. Abra a pasta raiz do projeto dentro do editor VS Code.
 2. Caso possua a extensão Live Server instalada, clique com o botão direito sobre o arquivo index.html na árvore de arquivos lateral.
 3. Selecione a opção "Open with Live Server". Um servidor local será instanciado automaticamente abrindo uma aba em seu navegador padrão.
-—
+---
+
 ### Links do Projeto
 
 - **Apresentação de Slides do Projeto:** [Slides da apresentação](https://canva.link/n3ptxcu43it074y)
