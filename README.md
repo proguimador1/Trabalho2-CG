@@ -94,6 +94,6 @@ No terminal cole:  python -m http-server 8000
 3. Selecione a opção "Open with Live Server". Um servidor local será instanciado automaticamente abrindo uma aba em seu navegador padrão.
 —
 ### Links do Projeto
-Apresentação de Slides do Projeto: [Insira aqui o link para os slides da apresentação]
-Vídeo de Demonstração da Execução: [Insira aqui o link para o vídeo gravado mostrando o passeio funcionando]
 
+- **Apresentação de Slides do Projeto:** [Slides da apresentação](https://canva.link/n3ptxcu43it074y)
+- **Vídeo de Demonstração da Execução:** [Vídeo da demonstração](https://www.youtube.com/watch?v=2GqB5qAYEsg&feature=youtu.be)
